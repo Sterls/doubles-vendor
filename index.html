@@ -631,7 +631,7 @@ async function loadBoard() {
   if (!online()) { $('boardnote').textContent = 'Your best mornings on this phone, ranked by profit. The worldwide board is not connected yet.'; return boardRows(localRows()); }
   $('boardnote').textContent = 'Loading the worldwide board…';
   try {
-    const all = await api('scores?select=pid,name,score,loc,day&order=score.desc&limit=200');
+    const all = await api('doubles_vendor_scores?select=pid,name,score,loc,day&order=score.desc&limit=200');
     const seen = new Set(), top = [];
     for (const r of all) { if (seen.has(r.pid)) continue; seen.add(r.pid); top.push({ name: String(r.name), score: +r.score, loc: +r.loc, day: +r.day, me: r.pid === S.pid }); if (top.length === 25) break; }
     $('boardnote').textContent = 'Vendors worldwide, ranked by profit in a single morning.';
@@ -648,7 +648,7 @@ $('post').addEventListener('click', async () => {
   if (!S.name) { $('boardnote').textContent = 'Put a name on your stand first, then post.'; $('vname').focus(); return; }
   $('post').disabled = true; $('post').textContent = 'Posting…';
   try {
-    await api('scores', { pid: pid(), name: S.name, score: S.best.p, loc: S.best.loc, day: S.best.day });
+    await api('doubles_vendor_scores', { pid: pid(), name: S.name, score: S.best.p, loc: S.best.loc, day: S.best.day });
     S.best.posted = true; save(); sfx.buy(); loadBoard();
   } catch (e) { $('boardnote').textContent = 'Could not post. Check your connection and try again.'; postState(); }
 });
