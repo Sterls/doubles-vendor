@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#19b5c9">
+</head>
+<body>
+<title>Doubles Tycoon</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&family=Nunito:wght@600;800;900&display=swap">
+<style>
+/* Layout: one portrait screen stacked like a street stand — sky and queue on top,
+   brown-paper workbench in the middle, ingredient tray at the bottom. Single sunny look. */
+:root {
+  --sky: #19b5c9;
+  --sky-deep: #0d8fa6;
+  --sun: #ffd23f;
+  --bara: #f0b22e;
+  --red: #d7261e;
+  --red-deep: #a3160f;
+  --ink: #1c130d;
+  --paper: #d6b483;
+  --paper-deep: #b8925c;
+  --wood: #7a4a24;
+  --wood-deep: #5a3416;
+  --cream: #fff4d6;
+  --leaf: #2c9a48;
+  --display: "Bowlby One", "Arial Black", Impact, sans-serif;
+  --body: "Nunito", "Trebuchet MS", system-ui, sans-serif;
+  --gl: max(16px, env(safe-area-inset-left, 0px));
+  --gr: max(16px, env(safe-area-inset-right, 0px));
+  color-scheme: light;
+}
+html, body { height: 100%; margin: 0; }
+[hidden] { display: none !important; }
+body {
+  background: var(--ink); color: var(--ink); font-family: var(--body); font-weight: 800;
+  overflow: hidden; touch-action: manipulation; -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
+}
+button { font: inherit; color: inherit; cursor: pointer; border: 0; }
+button:focus-visible { outline: 3px solid var(--cream); outline-offset: 2px; }
+#app { position: relative; height: 100%; max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; background: var(--sky); overflow: hidden; }
+
+/* HUD */
+.hud { display: flex; align-items: center; gap: 10px; padding-block: 8px; padding-left: var(--gl); padding-right: var(--gr); background: var(--ink); color: var(--cream); font-variant-numeric: tabular-nums; }
+.hud .money { font-family: var(--display); font-size: 22px; color: var(--sun); min-width: 0; }
+.hud .mid { flex: 1; min-width: 0; text-align: center; font-size: 12px; line-height: 1.2; text-transform: uppercase; letter-spacing: .06em; }
+.hud .mid b { display: block; font-size: 15px; letter-spacing: 0; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hud .stars { font-size: 15px; letter-spacing: 1px; color: var(--sun); white-space: nowrap; }
+.hud .stars i { font-style: normal; opacity: .28; }
+.hud .mute { background: transparent; color: var(--cream); font-size: 12px; padding: 6px 8px; border: 2px solid rgba(255,244,214,.35); border-radius: 8px; }
+.daybar { height: 6px; background: var(--red-deep); }
+.daybar > div { height: 100%; width: 0; background: var(--sun); }
+
+/* Scene */
+.scene { position: relative; flex: 1 1 36%; min-height: 0; background: linear-gradient(var(--sky) 0 62%, #f3d9a0 62% 100%); overflow: hidden; }
+.scene .sun { position: absolute; right: 9%; top: 8%; width: 54px; height: 54px; border-radius: 50%; background: var(--sun); box-shadow: 0 0 0 10px rgba(255,210,63,.3); }
+.scene .hills { position: absolute; left: 0; right: 0; bottom: 38%; height: 26%; background:
+  radial-gradient(60% 100% at 20% 100%, var(--leaf) 99%, transparent 100%),
+  radial-gradient(50% 80% at 75% 100%, #23803b 99%, transparent 100%); }
+.bubble { position: absolute; z-index: 3; top: 8px; left: var(--gl); right: var(--gr); background: var(--cream); border: 3px solid var(--ink); border-radius: 16px; padding: 8px 12px 10px; box-shadow: 4px 4px 0 var(--ink); transition: opacity .15s; }
+.bubble::after { content: ""; position: absolute; left: 44px; bottom: -14px; border: 7px solid transparent; border-top-color: var(--ink); }
+.bubble.empty { opacity: .0; }
+.bubble .say { font-size: 16px; line-height: 1.25; }
+.bubble .say em { font-style: normal; color: var(--red); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.chip { font-size: 12px; padding: 3px 9px; border-radius: 99px; border: 2px solid var(--ink); background: #fff; }
+.chip.ok { background: var(--leaf); color: #fff; }
+.chip.bad { background: var(--red); color: #fff; }
+.queue { position: absolute; inset: 0; }
+.cust { position: absolute; bottom: 12%; width: 23%; max-width: 110px; transition: left .45s cubic-bezier(.3,1.3,.5,1), transform .45s, opacity .45s; transform-origin: 50% 100%; }
+.cust svg { display: block; width: 100%; height: auto; }
+.cust .pat { position: absolute; left: 12%; right: 12%; top: -9px; height: 8px; border: 2px solid var(--ink); border-radius: 6px; background: #fff; overflow: hidden; }
+.cust .pat > div { height: 100%; background: var(--leaf); }
+.cust.back { transform: scale(.78); }
+.cust.in { opacity: 0; transform: translateX(60px) scale(.78); }
+.cust.out-happy { opacity: 0; transform: translate(-90px, 6px) rotate(-6deg); }
+.cust.out-angry { opacity: 0; transform: translate(-90px, 6px) scale(.9); filter: saturate(.4); }
+.counter { position: absolute; left: 0; right: 0; bottom: 0; height: 15%; background: repeating-linear-gradient(90deg, var(--red) 0 34px, var(--cream) 34px 68px); border-top: 4px solid var(--ink); border-bottom: 4px solid var(--ink); z-index: 2; }
+.float { position: absolute; z-index: 5; left: 8%; bottom: 46%; font-family: var(--display); font-size: 26px; color: var(--sun); -webkit-text-stroke: 1.5px var(--ink); paint-order: stroke fill; text-shadow: 2px 2px 0 var(--ink); pointer-events: none; animation: rise 1s ease-out forwards; }
+.float.bad { color: #fff; }
+@keyframes rise { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-70px); opacity: 0; } }
+
+/* Bench */
+.bench { position: relative; flex: 1 1 34%; min-height: 0; background: var(--wood); background-image: repeating-linear-gradient(0deg, transparent 0 22px, rgba(0,0,0,.12) 22px 24px); display: flex; align-items: center; justify-content: center; padding-left: var(--gl); padding-right: var(--gr); }
+#food { height: 100%; max-height: 260px; width: auto; max-width: 78%; }
+#food.shrink { animation: shrink .22s ease-in forwards; }
+@keyframes shrink { to { transform: scale(.2) rotate(40deg); opacity: 0; } }
+.parcel { position: absolute; left: 50%; top: 50%; width: 110px; margin: -55px 0 0 -55px; pointer-events: none; opacity: 0; z-index: 6; }
+.parcel.go { animation: parcel .75s ease-in-out forwards; }
+@keyframes parcel {
+  0% { opacity: 0; transform: scale(.3) rotate(-60deg); }
+  30% { opacity: 1; transform: scale(1.15) rotate(12deg); }
+  50% { transform: scale(1) rotate(-8deg); }
+  100% { opacity: 0; transform: translate(-90px, -260px) scale(.5) rotate(-30deg); }
+}
+.hint { position: absolute; left: var(--gl); bottom: 8px; font-size: 12px; color: var(--cream); max-width: 55%; line-height: 1.25; text-shadow: 1px 1px 0 var(--wood-deep); }
+.wrapbtn { position: absolute; right: var(--gr); bottom: 10px; width: 84px; height: 84px; border-radius: 50%; background: var(--red); color: #fff; font-family: var(--display); font-size: 17px; border: 4px solid var(--ink); box-shadow: 0 6px 0 var(--ink); }
+.wrapbtn:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--ink); }
+.wrapbtn small { display: block; font-family: var(--body); font-size: 10px; letter-spacing: .04em; }
+.wrapbtn.ready { animation: wiggle .5s ease-in-out infinite; }
+@keyframes wiggle { 0%,100% { rotate: -5deg; } 50% { rotate: 5deg; } }
+.toast { position: absolute; left: 50%; top: 10px; translate: -50% 0; z-index: 7; background: var(--ink); color: var(--cream); padding: 6px 14px; border-radius: 99px; font-size: 14px; white-space: nowrap; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.on { opacity: 1; }
+
+/* Tray */
+.tray { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding-block: 10px; padding-left: var(--gl); padding-right: var(--gr); background: var(--wood-deep); border-top: 4px solid var(--ink); }
+.ing { min-width: 0; background: var(--cream); border: 3px solid var(--ink); border-radius: 12px; padding: 7px 2px 6px; box-shadow: 0 4px 0 var(--ink); font-size: 12px; line-height: 1.1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ing:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.ing .sw { width: 30px; height: 22px; border-radius: 50%; border: 2px solid var(--ink); }
+.ing.on { background: var(--sun); }
+.ing.bin { background: #cfc4ae; }
+.ing span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+
+/* Overlays */
+.sheet { position: absolute; inset: 0; z-index: 20; background: var(--red); color: var(--cream); display: flex; flex-direction: column; padding-block: 18px; padding-left: var(--gl); padding-right: var(--gr); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.sheet h1 { font-family: var(--display); font-weight: 400; font-size: clamp(44px, 15vw, 76px); line-height: .92; margin: 6px 0 0; color: var(--sun); text-shadow: 4px 4px 0 var(--ink); text-wrap: balance; }
+.sheet h2 { font-family: var(--display); font-weight: 400; font-size: 26px; margin: 0 0 4px; color: var(--sun); text-shadow: 3px 3px 0 var(--ink); }
+.sheet p { margin: 10px 0 0; font-size: 15px; line-height: 1.4; max-width: 34em; }
+.steps { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 8px; }
+.steps li { background: var(--cream); color: var(--ink); border: 3px solid var(--ink); border-radius: 12px; padding: 9px 12px; font-size: 14px; box-shadow: 3px 3px 0 var(--ink); }
+.steps li b { color: var(--red); }
+.big { margin-top: 16px; background: var(--sun); color: var(--ink); font-family: var(--display); font-size: 20px; padding: 14px; border: 4px solid var(--ink); border-radius: 14px; box-shadow: 0 6px 0 var(--ink); }
+.big:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--ink); }
+.linkbtn { margin-top: 14px; background: transparent; color: var(--cream); text-decoration: underline; font-size: 13px; align-self: center; padding: 8px; }
+.ledger { margin-top: 10px; background: var(--cream); color: var(--ink); border: 3px solid var(--ink); border-radius: 12px; padding: 8px 12px; font-variant-numeric: tabular-nums; box-shadow: 3px 3px 0 var(--ink); }
+.ledger div { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; font-size: 14px; }
+.ledger .tot { border-top: 2px dashed var(--ink); margin-top: 4px; padding-top: 6px; font-size: 17px; font-weight: 900; }
+.shop { display: grid; gap: 8px; margin-top: 8px; }
+.item { display: flex; align-items: center; gap: 10px; background: var(--cream); color: var(--ink); border: 3px solid var(--ink); border-radius: 12px; padding: 8px 10px; }
+.item .txt { flex: 1; min-width: 0; font-size: 12px; line-height: 1.25; font-weight: 600; }
+.item .txt b { display: block; font-size: 15px; font-weight: 900; }
+.item button { background: var(--leaf); color: #fff; border: 3px solid var(--ink); border-radius: 10px; padding: 8px 10px; font-size: 14px; min-width: 76px; font-variant-numeric: tabular-nums; }
+.item button:disabled { background: #cfc4ae; color: #7b6f5c; cursor: default; }
+.item.loc { background: var(--sun); }
+.subhead { margin-top: 18px; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.subhead span { font-family: var(--display); color: var(--sun); font-size: 20px; }
+@media (prefers-reduced-motion: reduce) { .wrapbtn.ready { animation: none; } .cust { transition: none; } }
+</style>
+
+<div id="app">
+  <div class="hud">
+    <div class="money" id="money">$0</div>
+    <div class="mid"><span id="clock">Day 1 · 6:00am</span><b id="locname">Under the mango tree</b></div>
+    <div class="stars" id="stars" aria-label="Reputation"></div>
+    <button class="mute" id="mute" type="button">Sound on</button>
+  </div>
+  <div class="daybar"><div id="daybar"></div></div>
+
+  <div class="scene" id="scene">
+    <div class="sun"></div><div class="hills"></div>
+    <div class="bubble empty" id="bubble"><div class="say" id="say"></div><div class="chips" id="chips"></div></div>
+    <div class="queue" id="queue"></div>
+    <div class="counter"></div>
+  </div>
+
+  <div class="bench" id="bench">
+    <div class="toast" id="toast"></div>
+    <svg id="food" viewBox="0 0 240 200" aria-hidden="true"></svg>
+    <svg class="parcel" id="parcel" viewBox="0 0 110 110" aria-hidden="true">
+      <path d="M22 40 L78 28 L92 74 L34 90 Z" fill="#d6b483" stroke="#1c130d" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M78 28 L98 10 M78 28 L104 24 M78 28 L88 6" stroke="#1c130d" stroke-width="4" stroke-linecap="round" fill="none"/>
+      <path d="M30 52 L80 40 M36 70 L86 58" stroke="#b8925c" stroke-width="3" stroke-linecap="round" fill="none"/>
+    </svg>
+    <div class="hint" id="hint">Tap WRAP when it ready.</div>
+    <button class="wrapbtn" id="wrap" type="button">WRAP<small id="wrapsub">or shake</small></button>
+  </div>
+
+  <div class="tray" id="tray"></div>
+
+  <div class="sheet" id="title">
+    <h1>Doubles Tycoon</h1>
+    <p>Hot bara, curry channa, and a line down the road. Run the stand, wrap fast, and build a doubles empire from under the mango tree to Piarco Airport.</p>
+    <ul class="steps">
+      <li><b>Build it.</b> Two bara, channa, then pepper and toppings how the customer call it.</li>
+      <li><b>Shake yuh phone</b> to wrap the doubles and hand it over. No shake? Tap WRAP.</li>
+      <li><b>Spend the takings</b> after closing on toppings, helpers and better spots.</li>
+    </ul>
+    <button class="big" id="start" type="button">Open the stand</button>
+    <button class="linkbtn" id="reset" type="button" hidden>Start over from Day 1</button>
+  </div>
+
+  <div class="sheet" id="dayend" hidden>
+    <h2 id="endtitle">Sold out!</h2>
+    <div class="ledger" id="ledger"></div>
+    <div class="subhead"><span>Grow the business</span><b id="cash"></b></div>
+    <div class="shop" id="shop"></div>
+    <button class="big" id="next" type="button">Open for Day 2</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const TOPS = [
+  { id: 'cucumber', name: 'Cucumber', cost: 40, bonus: 1, color: '#7ccf6b', blurb: 'Cool shredded cucumber. Customers pay $1 more for it.' },
+  { id: 'tamarind', name: 'Tamarind', cost: 90, bonus: 1, color: '#5b2a12', blurb: 'Sweet tamarind sauce. $1 more per order.' },
+  { id: 'shadon', name: 'Shadon beni', cost: 160, bonus: 1.5, color: '#1f7a34', blurb: 'Green seasoning sauce. $1.50 more per order.' },
+  { id: 'kuchela', name: 'Kuchela', cost: 260, bonus: 2, color: '#e07a1f', blurb: 'Spicy green-mango pickle. $2 more per order.' }
+];
+const LOCS = [
+  { name: 'Under the mango tree', cost: 0, rent: 0, mult: 1, crowd: 1 },
+  { name: 'Curepe Junction', cost: 300, rent: 15, mult: 1.5, crowd: 1.15 },
+  { name: 'Debe main road', cost: 1200, rent: 50, mult: 2.2, crowd: 1.3 },
+  { name: 'Queen’s Park Savannah', cost: 4000, rent: 140, mult: 3.2, crowd: 1.45 },
+  { name: 'Piarco Airport', cost: 12000, rent: 380, mult: 5, crowd: 1.6 }
+];
+const UPS = [
+  { id: 'recipe', name: 'Ma’s channa recipe', max: 6, cost: l => Math.round(40 * Math.pow(1.9, l)), blurb: 'Every doubles sells for $1 more.' },
+  { id: 'sign', name: 'Bigger sign', max: 4, cost: l => 60 * Math.pow(2, l), blurb: 'More customers find the stand.' },
+  { id: 'radio', name: 'Soca on the radio', max: 3, cost: l => 80 * Math.pow(2, l), blurb: 'Customers wait longer before they vex.' },
+  { id: 'helper', name: 'Cousin helping out', max: 2, cost: l => [150, 500][l], blurb: 'Lays out the bara for you. Second level adds the channa too.' },
+  { id: 'drinks', name: 'Cooler of sweet drinks', max: 3, cost: l => Math.round(120 * Math.pow(2.2, l)), blurb: 'Every served customer buys a drink.' }
+];
+const PEPPER = ['no pepper', 'slight pepper', 'medium pepper', 'plenty pepper'];
+const DAY_LEN = 60;
+const fresh = () => ({ money: 0, day: 1, rep: 3, tops: [], lv: { recipe: 0, sign: 0, radio: 0, helper: 0, drinks: 0 }, loc: 0, won: false, mute: false });
+
+let S = fresh();
+try { const raw = localStorage.getItem('doubles-tycoon'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch (e) {}
+const save = () => { try { localStorage.setItem('doubles-tycoon', JSON.stringify(S)); } catch (e) {} };
+
+let playing = false, tLeft = DAY_LEN, spawnIn = 0, queue = [], uid = 0;
+let build = { bara: 0, channa: false, pepper: 0, tops: new Set() };
+let stats = null, motionOn = false, motionSeen = false;
+const money = n => '$' + Math.round(n).toLocaleString('en-US');
+const loc = () => LOCS[S.loc];
+
+/* ---------- sound ---------- */
+let ac = null;
+function beep(freq, dur, type, vol, slide) {
+  if (S.mute) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
+    o.type = type || 'square'; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    g.gain.setValueAtTime(vol || .06, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+const sfx = {
+  tap: () => beep(520, .06, 'triangle', .07),
+  wrap: () => { beep(180, .18, 'sawtooth', .05, 700); },
+  coin: () => { beep(880, .08, 'square', .05); setTimeout(() => beep(1320, .14, 'square', .05), 70); },
+  bad: () => beep(220, .25, 'sawtooth', .05, 110),
+  buy: () => { beep(660, .08, 'triangle', .08); setTimeout(() => beep(990, .16, 'triangle', .08), 80); }
+};
+
+/* ---------- drawing ---------- */
+function rng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+function drawFood() {
+  const b = build, r = rng(7);
+  let s = '<g transform="rotate(-4 120 100)"><rect x="18" y="14" width="204" height="172" rx="4" fill="#d6b483" stroke="#1c130d" stroke-width="4"/>' +
+    '<path d="M18 60 L222 52 M70 14 L78 186" stroke="#b8925c" stroke-width="2" fill="none"/></g>';
+  const bara = (cx, cy) => {
+    let o = `<ellipse cx="${cx}" cy="${cy}" rx="68" ry="44" fill="#f0b22e" stroke="#1c130d" stroke-width="4"/>`;
+    for (let i = 0; i < 7; i++) o += `<circle cx="${cx - 45 + r() * 90}" cy="${cy - 24 + r() * 48}" r="${3 + r() * 5}" fill="#d18f1a"/>`;
+    return o;
+  };
+  if (b.bara >= 1) s += bara(96, 110);
+  if (b.bara >= 2) s += bara(146, 96);
+  if (b.channa) {
+    s += '<ellipse cx="121" cy="102" rx="60" ry="32" fill="#c4841a" stroke="#1c130d" stroke-width="3"/>';
+    for (let i = 0; i < 24; i++) { const a = r() * 6.283, d = Math.sqrt(r()); s += `<circle cx="${121 + Math.cos(a) * d * 50}" cy="${102 + Math.sin(a) * d * 24}" r="6.5" fill="#ecd08a" stroke="#8a5d14" stroke-width="1.5"/>`; }
+  }
+  const zig = (y, color) => { let d = `M70 ${y}`; for (let i = 1; i <= 8; i++) d += ` L${70 + i * 13} ${y + (i % 2 ? -12 : 12)}`; return `<path d="${d}" stroke="${color}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`; };
+  if (b.tops.has('tamarind')) s += zig(96, '#5b2a12');
+  if (b.tops.has('shadon')) s += zig(110, '#1f7a34');
+  const r2 = rng(99);
+  if (b.tops.has('cucumber')) for (let i = 0; i < 12; i++) { const x = 78 + r2() * 84, y = 84 + r2() * 34, a = r2() * 180; s += `<rect x="${x}" y="${y}" width="16" height="4" rx="2" fill="#7ccf6b" stroke="#2c7a2c" stroke-width="1" transform="rotate(${a} ${x} ${y})"/>`; }
+  if (b.tops.has('kuchela')) for (let i = 0; i < 9; i++) { const x = 82 + r2() * 78, y = 86 + r2() * 30; s += `<circle cx="${x}" cy="${y}" r="5" fill="#e07a1f" stroke="#8a3d0a" stroke-width="1.5"/>`; }
+  for (let i = 0; i < b.pepper * 5; i++) s += `<circle cx="${76 + r2() * 90}" cy="${82 + r2() * 40}" r="4" fill="#d7261e" stroke="#7a0d08" stroke-width="1.2"/>`;
+  if (!b.bara) s += '<text x="120" y="108" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="15" fill="#7a5a30">Start with the bara</text>';
+  $('food').innerHTML = s;
+}
+const SKIN = ['#8d5a3b', '#6b3f26', '#b97a50', '#4d2c1a', '#d19a6e', '#a0673f'];
+const SHIRT = ['#d7261e', '#ffd23f', '#ffffff', '#2c9a48', '#f47c20', '#7b3fb5', '#1c5fd1', '#ff6fa3'];
+const MOUTH = ['M31 51 Q40 43 49 51', 'M32 48 L48 48', 'M30 44 Q40 54 50 44'];
+function custSvg(c) {
+  const hair = [
+    `<path d="M19 30 Q20 8 40 8 Q60 8 61 30 Q52 18 40 18 Q28 18 19 30Z" fill="#1c130d"/>`,
+    `<circle cx="40" cy="20" r="25" fill="#1c130d"/>`,
+    `<path d="M17 34 Q14 6 40 6 Q66 6 63 34 L66 62 L56 62 L58 30 Q40 14 22 30 L24 62 L14 62Z" fill="#1c130d"/>`,
+    `<path d="M18 26 Q22 6 40 6 Q58 6 62 26 Z" fill="${c.shirt2}" stroke="#1c130d" stroke-width="3"/><path d="M58 24 L74 28" stroke="#1c130d" stroke-width="5" stroke-linecap="round"/>`,
+    ''
+  ][c.hair];
+  const back = c.hair === 1 || c.hair === 2 ? hair : '';
+  return `<svg viewBox="0 0 80 112">${back}<path d="M8 112 Q8 68 40 68 Q72 68 72 112Z" fill="${c.shirt}" stroke="#1c130d" stroke-width="4"/>` +
+    `<rect x="33" y="56" width="14" height="16" fill="${c.skin}" stroke="#1c130d" stroke-width="3"/>` +
+    `<circle cx="40" cy="36" r="22" fill="${c.skin}" stroke="#1c130d" stroke-width="4"/>${back ? '' : hair}` +
+    `<circle cx="32" cy="34" r="3" fill="#1c130d"/><circle cx="48" cy="34" r="3" fill="#1c130d"/>` +
+    `<path class="mouth" d="${MOUTH[2]}" stroke="#1c130d" stroke-width="3.5" stroke-linecap="round" fill="none"/></svg>`;
+}
+
+/* ---------- queue ---------- */
+function patienceMax() { return (15 + 2 * S.tops.length) * (1 + .2 * S.lv.radio); }
+function spawn() {
+  if (queue.length >= 4) return;
+  const pr = Math.random();
+  const c = {
+    id: ++uid, pepper: pr < .2 ? 0 : pr < .55 ? 1 : pr < .8 ? 2 : 3,
+    tops: new Set(S.tops.filter(() => Math.random() < .45)),
+    max: patienceMax(), skin: SKIN[uid * 7 % SKIN.length], shirt: SHIRT[Math.floor(Math.random() * SHIRT.length)],
+    shirt2: SHIRT[Math.floor(Math.random() * SHIRT.length)], hair: Math.floor(Math.random() * 5)
+  };
+  c.pat = c.max;
+  c.el = document.createElement('div');
+  c.el.className = 'cust in';
+  c.el.innerHTML = '<div class="pat"><div></div></div>' + custSvg(c);
+  c.bar = c.el.querySelector('.pat > div'); c.mouth = c.el.querySelector('.mouth');
+  $('queue').appendChild(c.el);
+  queue.push(c);
+  requestAnimationFrame(() => requestAnimationFrame(layoutQueue));
+}
+function layoutQueue() {
+  queue.forEach((c, i) => {
+    c.el.classList.remove('in');
+    c.el.classList.toggle('back', i > 0);
+    c.el.style.left = [5, 34, 54, 74][i] + '%';
+    c.el.style.zIndex = 1;
+  });
+  renderBubble();
+}
+function leave(c, happy) {
+  queue.splice(queue.indexOf(c), 1);
+  c.el.classList.add(happy ? 'out-happy' : 'out-angry');
+  c.mouth.setAttribute('d', MOUTH[happy ? 2 : 0]);
+  setTimeout(() => c.el.remove(), 500);
+  layoutQueue();
+}
+function floatText(text, bad) {
+  const f = document.createElement('div');
+  f.className = 'float' + (bad ? ' bad' : ''); f.textContent = text;
+  $('scene').appendChild(f); setTimeout(() => f.remove(), 1000);
+}
+function renderBubble() {
+  const c = queue[0], bub = $('bubble');
+  bub.classList.toggle('empty', !c);
+  if (!c) return;
+  const want = [...c.tops].map(id => TOPS.find(t => t.id === id));
+  $('say').innerHTML = `One doubles, <em>${PEPPER[c.pepper]}</em>` + (want.length ? ', with ' + want.map(t => t.name.toLowerCase()).join(' and ') : S.tops.length ? ', nothing else' : '') + '!';
+  let chips = `<span class="chip ${build.pepper === c.pepper ? 'ok' : ''}">${PEPPER[c.pepper]}</span>`;
+  want.forEach(t => chips += `<span class="chip ${build.tops.has(t.id) ? 'ok' : ''}">${t.name}</span>`);
+  build.tops.forEach(id => { if (!c.tops.has(id)) chips += `<span class="chip bad">no ${TOPS.find(t => t.id === id).name.toLowerCase()}!</span>`; });
+  $('chips').innerHTML = chips;
+}
+
+/* ---------- building ---------- */
+let toastT = 0;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 1400); }
+function renderTray() {
+  const items = [
+    { id: 'bara', name: 'Bara', color: '#f0b22e' }, { id: 'channa', name: 'Channa', color: '#c4841a' },
+    { id: 'pepper', name: 'Pepper', color: '#d7261e' },
+    ...TOPS.filter(t => S.tops.includes(t.id)), { id: 'bin', name: 'Bin it', color: '#8b8172' }
+  ];
+  $('tray').innerHTML = items.map(i => `<button type="button" class="ing ${i.id === 'bin' ? 'bin' : ''}" id="ing-${i.id}" data-id="${i.id}"><i class="sw" style="background:${i.color}"></i><span>${i.name}</span></button>`).join('');
+  refresh();
+}
+function refresh() {
+  drawFood(); renderBubble();
+  const set = (id, on, label) => { const el = $('ing-' + id); if (!el) return; el.classList.toggle('on', on); if (label) el.lastChild.textContent = label; };
+  set('bara', build.bara > 0, 'Bara ' + build.bara + '/2');
+  set('channa', build.channa);
+  set('pepper', build.pepper > 0, ['Pepper', 'Slight', 'Medium', 'Plenty'][build.pepper]);
+  TOPS.forEach(t => set(t.id, build.tops.has(t.id)));
+  $('wrap').classList.toggle('ready', build.bara === 2 && build.channa);
+}
+function clearBuild() {
+  build = { bara: S.lv.helper >= 1 ? 2 : 0, channa: S.lv.helper >= 2, pepper: 0, tops: new Set() };
+  refresh();
+}
+function tapIng(id) {
+  if (!playing) return;
+  if (id === 'bin') { build = { bara: 0, channa: false, pepper: 0, tops: new Set() }; sfx.bad(); return refresh(); }
+  if (id === 'bara') { if (build.bara >= 2) return toast('Is doubles, not triples!'); build.bara++; }
+  else if (!build.bara) return toast('Bara first!');
+  else if (id === 'channa') { if (build.channa) return toast('Channa already on'); build.channa = true; }
+  else if (!build.channa) return toast('Put the channa first!');
+  else if (id === 'pepper') build.pepper = (build.pepper + 1) % 4;
+  else build.tops.has(id) ? build.tops.delete(id) : build.tops.add(id);
+  sfx.tap(); refresh();
+}
+$('tray').addEventListener('click', e => { const b = e.target.closest('.ing'); if (b) tapIng(b.dataset.id); });
+
+/* ---------- wrapping ---------- */
+let lastWrap = 0;
+function wrap() {
+  if (!playing) return;
+  const now = performance.now();
+  if (now - lastWrap < 500) return;
+  if (!build.bara) return;
+  lastWrap = now;
+  const c = queue[0];
+  if (!c) return toast('Nobody in line yet');
+  if (build.bara < 2 || !build.channa) {
+    toast(build.bara < 2 ? 'One bara? Dat is not doubles!' : 'Where the channa?');
+    c.pat = Math.max(.5, c.pat - c.max * .2); sfx.bad();
+    if (navigator.vibrate) navigator.vibrate([40, 40, 40]);
+    return;
+  }
+  // animate
+  const food = $('food'), parcel = $('parcel');
+  food.classList.remove('shrink'); parcel.classList.remove('go'); void parcel.getBoundingClientRect();
+  parcel.classList.add('go'); sfx.wrap();
+  if (navigator.vibrate) navigator.vibrate(60);
+  // score
+  let miss = build.pepper === c.pepper ? 0 : 1;
+  TOPS.forEach(t => { if (build.tops.has(t.id) !== c.tops.has(t.id)) miss++; });
+  const m = loc().mult;
+  let price = 4 + S.lv.recipe;
+  c.tops.forEach(id => price += TOPS.find(t => t.id === id).bonus);
+  price *= m;
+  const paid = Math.round(price * (miss === 0 ? 1 : miss === 1 ? .6 : .25));
+  const tip = miss === 0 ? Math.round(price * .3 * (c.pat / c.max)) : 0;
+  const drinks = Math.round(2 * S.lv.drinks * m);
+  const cost = Math.round(m * 10) / 10;
+  S.money += paid + tip + drinks - cost;
+  S.rep = Math.max(0, Math.min(5, S.rep + (miss === 0 ? .1 : miss === 1 ? -.08 : -.2)));
+  stats.served++; stats.sales += paid; stats.tips += tip; stats.drinks += drinks; stats.cost += cost; if (miss === 0) stats.perfect++;
+  setTimeout(() => {
+    floatText('+' + money(paid + tip + drinks), miss > 0);
+    if (miss === 0) sfx.coin(); else { sfx.bad(); toast(miss === 1 ? 'Not quite what I ask for…' : 'Dat is not my order!'); }
+    leave(c, miss === 0); hud();
+  }, 420);
+  clearBuild();
+}
+$('wrap').addEventListener('click', wrap);
+addEventListener('keydown', e => { if (e.code === 'Space' && playing) { e.preventDefault(); wrap(); } });
+
+/* shake detection */
+let prevG = null, lastJolt = 0, jolts = 0;
+function onMotion(e) {
+  let mag = null, limit = 13;
+  const a = e.acceleration;
+  if (a && a.x != null) mag = Math.hypot(a.x, a.y, a.z);
+  else {
+    const g = e.accelerationIncludingGravity;
+    if (!g || g.x == null) return;
+    if (prevG) mag = Math.hypot(g.x - prevG.x, g.y - prevG.y, g.z - prevG.z);
+    prevG = { x: g.x, y: g.y, z: g.z }; limit = 8;
+  }
+  if (mag == null) return;
+  if (!motionSeen) { motionSeen = true; hint(); }
+  if (mag < limit) return;
+  const now = performance.now();
+  if (now - lastJolt < 90) return;
+  jolts = now - lastJolt < 700 ? jolts + 1 : 1;
+  lastJolt = now;
+  if (jolts >= 2) { jolts = 0; wrap(); }
+}
+function enableMotion() {
+  if (motionOn || typeof DeviceMotionEvent === 'undefined') return;
+  // Listening is harmless without permission (no events arrive), so always listen;
+  // iOS additionally needs the permission prompt, which must come from this tap.
+  motionOn = true; addEventListener('devicemotion', onMotion);
+  try {
+    if (typeof DeviceMotionEvent.requestPermission === 'function') DeviceMotionEvent.requestPermission().catch(() => {});
+  } catch (e) {}
+}
+function hint() {
+  $('hint').textContent = motionSeen ? 'Shake yuh phone to wrap the doubles!' : 'Tap WRAP when it ready. On a phone, shake to wrap.';
+  $('wrapsub').textContent = motionSeen ? 'or shake!' : 'tap';
+}
+
+/* ---------- HUD + loop ---------- */
+function hud() {
+  $('money').textContent = money(S.money);
+  const mins = Math.floor((1 - tLeft / DAY_LEN) * 240), h = 6 + Math.floor(mins / 60);
+  $('clock').textContent = `Day ${S.day} · ${h}:${String(Math.floor(mins % 60 / 10) * 10).padStart(2, '0')}am`;
+  $('locname').textContent = loc().name;
+  const full = Math.round(S.rep);
+  $('stars').innerHTML = '★'.repeat(full) + '<i>' + '★'.repeat(5 - full) + '</i>';
+  $('daybar').style.width = (100 - tLeft / DAY_LEN * 100) + '%';
+  $('mute').textContent = S.mute ? 'Sound off' : 'Sound on';
+}
+function spawnGap() { return Math.max(2.2, 6.5 / (1 + .2 * S.lv.sign) / loc().crowd * (1.3 - .1 * S.rep)) * (.75 + Math.random() * .5); }
+let last = 0;
+function tick(ts) {
+  const dt = Math.min(.1, (ts - last) / 1000 || 0); last = ts;
+  if (playing) {
+    tLeft = Math.max(0, tLeft - dt);
+    if (tLeft > 0) { spawnIn -= dt; if (spawnIn <= 0) { spawn(); spawnIn = spawnGap(); } }
+    for (const c of [...queue]) {
+      c.pat -= dt * (c === queue[0] ? 1 : .4);
+      const f = Math.max(0, c.pat / c.max);
+      c.bar.style.width = f * 100 + '%';
+      c.bar.style.background = f > .5 ? '#2c9a48' : f > .25 ? '#f0b22e' : '#d7261e';
+      c.mouth.setAttribute('d', MOUTH[f > .5 ? 2 : f > .25 ? 1 : 0]);
+      if (c.pat <= 0) { stats.lost++; S.rep = Math.max(0, S.rep - .25); leave(c, false); floatText('Steups!', true); sfx.bad(); }
+    }
+    hud();
+    if (tLeft <= 0 && !queue.length) endDay();
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ---------- day flow ---------- */
+function startDay() {
+  stats = { served: 0, perfect: 0, lost: 0, sales: 0, tips: 0, drinks: 0, cost: 0 };
+  tLeft = DAY_LEN; spawnIn = .8; queue.forEach(c => c.el.remove()); queue = [];
+  $('title').hidden = true; $('dayend').hidden = true;
+  playing = true; renderTray(); clearBuild(); hint(); hud();
+}
+function endDay() {
+  playing = false;
+  const rent = loc().rent; S.money = Math.max(0, S.money - rent);
+  const profit = stats.sales + stats.tips + stats.drinks - stats.cost - rent;
+  $('endtitle').textContent = stats.lost === 0 && stats.served > 0 ? 'Sold out! Not a soul vex.' : stats.served ? `Day ${S.day} done` : 'Rough morning…';
+  const row = (a, b, cls) => `<div class="${cls || ''}"><span>${a}</span><span>${b}</span></div>`;
+  $('ledger').innerHTML = row(`Doubles sold (${stats.perfect} perfect)`, stats.served) + row('Customers who walked off', stats.lost) +
+    row('Sales', money(stats.sales)) + row('Tips', money(stats.tips)) + (S.lv.drinks ? row('Sweet drinks', money(stats.drinks)) : '') +
+    row('Flour, channa and paper', '−' + money(stats.cost)) + (rent ? row('Rent for the spot', '−' + money(rent)) : '') + row('Profit', money(profit), 'tot');
+  S.day++; save(); renderShop();
+  $('dayend').hidden = false; $('dayend').scrollTop = 0; hud();
+}
+function renderShop() {
+  $('cash').textContent = money(S.money) + ' in the till';
+  $('next').textContent = 'Open for Day ' + S.day;
+  const item = (key, name, blurb, cost, cls) => `<div class="item ${cls || ''}"><div class="txt"><b>${name}</b>${blurb}</div><button type="button" id="buy-${key}" data-buy="${key}" ${cost == null || S.money < cost ? 'disabled' : ''}>${cost == null ? 'Maxed' : money(cost)}</button></div>`;
+  let h = '';
+  const nl = LOCS[S.loc + 1];
+  if (nl) h += item('loc', 'Move to ' + nl.name, `Prices ×${nl.mult} and a bigger crowd. Rent ${money(nl.rent)} a day.`, nl.cost, 'loc');
+  TOPS.forEach(t => { if (!S.tops.includes(t.id)) h += item('top-' + t.id, t.name, t.blurb, t.cost); });
+  UPS.forEach(u => { const l = S.lv[u.id]; h += item('up-' + u.id, `${u.name} <small>(${l}/${u.max})</small>`, u.blurb, l >= u.max ? null : u.cost(l)); });
+  $('shop').innerHTML = h;
+}
+$('shop').addEventListener('click', e => {
+  const b = e.target.closest('button[data-buy]'); if (!b || b.disabled) return;
+  const k = b.dataset.buy; let cost;
+  if (k === 'loc') { cost = LOCS[S.loc + 1].cost; S.loc++; if (S.loc === LOCS.length - 1 && !S.won) { S.won = true; $('endtitle').textContent = 'Yuh is a real Doubles Tycoon!'; $('dayend').scrollTop = 0; } }
+  else if (k.startsWith('top-')) { const t = TOPS.find(t => t.id === k.slice(4)); cost = t.cost; S.tops.push(t.id); }
+  else { const u = UPS.find(u => u.id === k.slice(3)); cost = u.cost(S.lv[u.id]); S.lv[u.id]++; }
+  S.money -= cost; sfx.buy(); save(); renderShop(); hud();
+});
+$('next').addEventListener('click', startDay);
+$('start').addEventListener('click', () => { enableMotion(); startDay(); });
+let resetArmed = false;
+$('reset').addEventListener('click', () => {
+  if (!resetArmed) { resetArmed = true; $('reset').textContent = 'Tap again to wipe the save'; return; }
+  S = fresh(); save(); resetArmed = false; $('reset').hidden = true; $('start').textContent = 'Open the stand'; hud();
+});
+$('mute').addEventListener('click', () => { S.mute = !S.mute; save(); hud(); });
+
+if (S.day > 1 || S.money > 0) { $('start').textContent = 'Continue – Day ' + S.day; $('reset').hidden = false; }
+renderTray(); hud(); requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
