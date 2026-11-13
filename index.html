@@ -137,6 +137,21 @@ button:focus-visible { outline: 3px solid var(--cream); outline-offset: 2px; }
 .item.loc { background: var(--sun); }
 .subhead { margin-top: 18px; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .subhead span { font-family: var(--display); color: var(--sun); font-size: 20px; }
+.second { background: var(--cream); color: var(--ink); border: 3px solid var(--ink); border-radius: 12px; padding: 11px 8px; font-size: 15px; font-weight: 900; box-shadow: 0 4px 0 var(--ink); text-align: center; text-decoration: none; min-width: 0; }
+.second:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.row2 { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.row2 > * { flex: 1 1 120px; }
+#board { z-index: 30; } #sharesheet { z-index: 40; }
+.ledger .rank { display: grid; grid-template-columns: 2em minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 6px 0; font-size: 15px; border-bottom: 2px dashed rgba(28,19,13,.2); font-variant-numeric: tabular-nums; }
+.rank:last-child { border-bottom: 0; }
+.rank .who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank .who small { display: block; font-weight: 600; font-size: 12px; opacity: .75; overflow: hidden; text-overflow: ellipsis; }
+.rank .amt { font-family: var(--display); color: var(--red); }
+.ledger .rank.me { background: var(--sun); margin: 0 -8px; padding: 6px 8px; border-radius: 8px; border-bottom-color: transparent; }
+.namelab { margin-top: 16px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
+#vname { margin-top: 6px; font: inherit; font-size: 17px; padding: 11px 12px; border: 3px solid var(--ink); border-radius: 12px; background: var(--cream); color: var(--ink); -webkit-user-select: text; user-select: text; width: 100%; box-sizing: border-box; }
+#cardimg { margin-top: 10px; width: 100%; max-width: 340px; align-self: center; border: 4px solid var(--ink); border-radius: 12px; box-shadow: 4px 4px 0 var(--ink); -webkit-touch-callout: default; }
+#sharetext { -webkit-user-select: text; user-select: text; }
 @media (prefers-reduced-motion: reduce) { .wrapbtn.ready { animation: none; } .cust { transition: none; } }
 </style>
 
@@ -179,15 +194,41 @@ button:focus-visible { outline: 3px solid var(--cream); outline-offset: 2px; }
       <li><b>Spend the takings</b> after closing on toppings, helpers and better spots.</li>
     </ul>
     <button class="big" id="start" type="button">Open the stand</button>
+    <div class="row2"><button class="second" type="button" data-board>Leaderboard</button></div>
     <button class="linkbtn" id="reset" type="button" hidden>Start over from Day 1</button>
   </div>
 
   <div class="sheet" id="dayend" hidden>
     <h2 id="endtitle">Sold out!</h2>
     <div class="ledger" id="ledger"></div>
+    <div class="row2"><button class="second" type="button" data-share>Share my best</button><button class="second" type="button" data-board>Leaderboard</button></div>
     <div class="subhead"><span>Grow the business</span><b id="cash"></b></div>
     <div class="shop" id="shop"></div>
     <button class="big" id="next" type="button">Open for Day 2</button>
+  </div>
+
+  <div class="sheet" id="board" hidden>
+    <h2>Top vendors</h2>
+    <p id="boardnote"></p>
+    <div class="ledger" id="boardlist"></div>
+    <label class="namelab" for="vname">Name on your stand</label>
+    <input id="vname" type="text" maxlength="16" autocomplete="off" placeholder="Auntie Dolly's">
+    <button class="big" id="post" type="button">Post my best morning</button>
+    <div class="row2"><button class="second" type="button" data-share>Share my best</button><button class="second" type="button" id="boardback">Back</button></div>
+  </div>
+
+  <div class="sheet" id="sharesheet" hidden>
+    <h2>Share yuh score</h2>
+    <img id="cardimg" alt="Score card">
+    <p id="sharetext"></p>
+    <button class="big" id="sharego" type="button">Share the picture</button>
+    <div class="row2">
+      <a class="second" id="sh-wa" target="_blank" rel="noopener">WhatsApp</a>
+      <a class="second" id="sh-x" target="_blank" rel="noopener">X</a>
+      <a class="second" id="sh-fb" target="_blank" rel="noopener">Facebook</a>
+    </div>
+    <div class="row2"><button class="second" type="button" id="copytext">Copy the words</button><button class="second" type="button" id="shareback">Back</button></div>
+    <p>To post the picture yourself, press and hold it to save it.</p>
   </div>
 </div>
 
@@ -217,7 +258,7 @@ const UPS = [
 ];
 const PEPPER = ['no pepper', 'slight pepper', 'medium pepper', 'plenty pepper'];
 const DAY_LEN = 60;
-const fresh = () => ({ money: 0, day: 1, rep: 3, tops: [], lv: { recipe: 0, sign: 0, radio: 0, helper: 0, drinks: 0 }, loc: 0, won: false, mute: false });
+const fresh = () => ({ money: 0, day: 1, rep: 3, tops: [], lv: { recipe: 0, sign: 0, radio: 0, helper: 0, drinks: 0 }, loc: 0, won: false, mute: false, name: '', best: null, hist: [], pid: '' });
 
 let S = fresh();
 try { const raw = localStorage.getItem('doubles-vendor'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch (e) {}
@@ -510,7 +551,11 @@ function endDay() {
   playing = false;
   const rent = loc().rent; S.money = Math.max(0, S.money - rent);
   const profit = stats.sales + stats.tips + stats.drinks - stats.cost - rent;
-  $('endtitle').textContent = stats.lost === 0 && stats.served > 0 ? 'Sold out! Not a soul vex.' : stats.served ? `Day ${S.day} done` : 'Rough morning…';
+  const p = Math.round(profit);
+  S.hist.push({ p, day: S.day, loc: S.loc }); S.hist.sort((a, b) => b.p - a.p); S.hist.length = Math.min(5, S.hist.length);
+  const isBest = p > 0 && (!S.best || p > S.best.p);
+  if (isBest) S.best = { p, day: S.day, loc: S.loc, posted: false };
+  $('endtitle').textContent = isBest && S.day > 1 ? 'New best morning!' : stats.lost === 0 && stats.served > 0 ? 'Sold out! Not a soul vex.' : stats.served ? `Day ${S.day} done` : 'Rough morning…';
   const row = (a, b, cls) => `<div class="${cls || ''}"><span>${a}</span><span>${b}</span></div>`;
   $('ledger').innerHTML = row(`Doubles sold (${stats.perfect} perfect)`, stats.served) + row('Customers who walked off', stats.lost) +
     row('Sales', money(stats.sales)) + row('Tips', money(stats.tips)) + (S.lv.drinks ? row('Sweet drinks', money(stats.drinks)) : '') +
@@ -545,6 +590,136 @@ $('reset').addEventListener('click', () => {
   S = fresh(); save(); resetArmed = false; $('reset').hidden = true; $('start').textContent = 'Open the stand'; hud();
 });
 $('mute').addEventListener('click', () => { S.mute = !S.mute; save(); hud(); });
+
+/* ---------- leaderboard ---------- */
+// Worldwide board: a Supabase project URL and its publishable (anon) key. See leaderboard.sql.
+// Left empty, the board shows this phone's best mornings only.
+const BOARD = window.DV_BOARD || { url: '', key: '' };
+const online = () => !!(BOARD.url && BOARD.key);
+async function api(path, body) {
+  const r = await fetch(BOARD.url.replace(/\/$/, '') + '/rest/v1/' + path, {
+    method: body ? 'POST' : 'GET', body: body ? JSON.stringify(body) : undefined,
+    headers: { apikey: BOARD.key, Authorization: 'Bearer ' + BOARD.key, 'Content-Type': 'application/json', Prefer: 'return=minimal' }
+  });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return body ? null : r.json();
+}
+function pid() {
+  if (!S.pid) { S.pid = crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => (Math.random() * 16 | 0).toString(16)); save(); }
+  return S.pid;
+}
+function boardRows(rows) {
+  const list = $('boardlist'); list.textContent = '';
+  if (!rows.length) { const d = document.createElement('div'); d.textContent = 'No mornings on the board yet. Go sell some doubles.'; list.appendChild(d); return; }
+  rows.forEach((r, i) => {
+    const row = document.createElement('div'); row.className = 'rank' + (r.me ? ' me' : '');
+    const n = document.createElement('span'); n.textContent = i + 1 + '.';
+    const who = document.createElement('span'); who.className = 'who'; who.textContent = r.name;
+    const sub = document.createElement('small'); sub.textContent = (LOCS[r.loc] || LOCS[0]).name + ' · Day ' + r.day; who.appendChild(sub);
+    const amt = document.createElement('span'); amt.className = 'amt'; amt.textContent = money(r.score);
+    row.append(n, who, amt); list.appendChild(row);
+  });
+}
+const localRows = () => S.hist.filter(h => h.p > 0).map(h => ({ name: S.name || 'My stand', score: h.p, loc: h.loc, day: h.day, me: true }));
+function postState() {
+  const b = $('post'); b.hidden = !online();
+  b.disabled = !S.best || S.best.posted;
+  b.textContent = !S.best ? 'Finish a good morning first' : S.best.posted ? 'Best morning posted' : 'Post my best: ' + money(S.best.p);
+}
+async function loadBoard() {
+  postState();
+  if (!online()) { $('boardnote').textContent = 'Your best mornings on this phone, ranked by profit. The worldwide board is not connected yet.'; return boardRows(localRows()); }
+  $('boardnote').textContent = 'Loading the worldwide board…';
+  try {
+    const all = await api('scores?select=pid,name,score,loc,day&order=score.desc&limit=200');
+    const seen = new Set(), top = [];
+    for (const r of all) { if (seen.has(r.pid)) continue; seen.add(r.pid); top.push({ name: String(r.name), score: +r.score, loc: +r.loc, day: +r.day, me: r.pid === S.pid }); if (top.length === 25) break; }
+    $('boardnote').textContent = 'Vendors worldwide, ranked by profit in a single morning.';
+    boardRows(top);
+  } catch (e) {
+    $('boardnote').textContent = 'Could not reach the worldwide board. Showing this phone’s best mornings.';
+    boardRows(localRows());
+  }
+}
+function openBoard() { $('vname').value = S.name; $('board').hidden = false; $('board').scrollTop = 0; loadBoard(); }
+$('vname').addEventListener('input', () => { S.name = $('vname').value.trim().slice(0, 16); save(); });
+$('post').addEventListener('click', async () => {
+  if (!S.best || S.best.posted) return;
+  if (!S.name) { $('boardnote').textContent = 'Put a name on your stand first, then post.'; $('vname').focus(); return; }
+  $('post').disabled = true; $('post').textContent = 'Posting…';
+  try {
+    await api('scores', { pid: pid(), name: S.name, score: S.best.p, loc: S.best.loc, day: S.best.day });
+    S.best.posted = true; save(); sfx.buy(); loadBoard();
+  } catch (e) { $('boardnote').textContent = 'Could not post. Check your connection and try again.'; postState(); }
+});
+$('boardback').addEventListener('click', () => { $('board').hidden = true; });
+
+/* ---------- sharing ---------- */
+const gameUrl = () => location.protocol === 'https:' && !/claude|anthropic/.test(location.hostname) ? location.origin + location.pathname : '';
+function shareWords() {
+  const b = S.best;
+  return b ? `I made ${money(b.p)} in one morning selling doubles at ${LOCS[b.loc].name} in Doubles Vendor. Think you can out-sell me?`
+           : 'I just opened a doubles stand in Doubles Vendor. Come see if you can out-sell me!';
+}
+async function makeCard() {
+  const c = document.createElement('canvas'); c.width = c.height = 1080;
+  const x = c.getContext('2d'), b = S.best;
+  try { await Promise.all([document.fonts.load('100px "Bowlby One"'), document.fonts.load('900 50px Nunito')]); } catch (e) {}
+  const disp = px => `${px}px "Bowlby One", "Arial Black", Impact, sans-serif`, body = px => `900 ${px}px Nunito, "Trebuchet MS", sans-serif`;
+  const fit = (text, font, px, max) => { do { x.font = font(px); px -= 4; } while (x.measureText(text).width > max && px > 20); };
+  const shadow = (text, y, color, off) => { x.fillStyle = '#1c130d'; x.fillText(text, 540 + off, y + off); x.fillStyle = color; x.fillText(text, 540, y); };
+  x.fillStyle = '#d7261e'; x.fillRect(0, 0, 1080, 1080);
+  for (let i = 0; i < 12; i++) { x.fillStyle = i % 2 ? '#fff4d6' : '#a3160f'; x.fillRect(i * 90, 0, 90, 120); }
+  x.fillStyle = '#1c130d'; x.fillRect(0, 120, 1080, 12);
+  x.textAlign = 'center';
+  x.font = disp(104); shadow('DOUBLES VENDOR', 290, '#ffd23f', 7);
+  const name = S.name || 'My stand';
+  fit(name, body, 64, 960); x.fillStyle = '#fff4d6'; x.fillText(name, 540, 400);
+  if (b) {
+    x.font = body(46); x.fillText('made', 540, 470);
+    fit(money(b.p), disp, 230, 980); shadow(money(b.p), 690, '#ffd23f', 10);
+    x.fillStyle = '#fff4d6'; x.font = body(54); x.fillText('in one morning', 540, 780);
+    fit('at ' + LOCS[b.loc].name + ' · Day ' + b.day, body, 44, 980); x.fillText('at ' + LOCS[b.loc].name + ' · Day ' + b.day, 540, 846);
+  } else { x.font = disp(90); shadow('NOW OPEN', 640, '#ffd23f', 7); }
+  x.fillStyle = '#1c130d'; x.fillRect(0, 906, 1080, 174); x.fillStyle = '#fff4d6'; x.fillRect(0, 918, 1080, 162);
+  x.fillStyle = '#1c130d'; x.font = body(50); x.fillText('Think you can out-sell me?', 540, gameUrl() ? 985 : 1015);
+  if (gameUrl()) { fit(gameUrl().replace(/^https:\/\//, ''), body, 36, 1000); x.fillStyle = '#a3160f'; x.fillText(gameUrl().replace(/^https:\/\//, ''), 540, 1045); }
+  return c;
+}
+let cardCanvas = null;
+async function openShare() {
+  const words = shareWords(), url = gameUrl(), full = words + (url ? ' ' + url : '');
+  $('sharetext').textContent = full;
+  $('sh-wa').href = 'https://wa.me/?text=' + encodeURIComponent(full);
+  $('sh-x').href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(words) + (url ? '&url=' + encodeURIComponent(url) : '');
+  $('sh-fb').hidden = !url; if (url) $('sh-fb').href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url);
+  $('sharego').hidden = !navigator.share;
+  $('sharesheet').hidden = false; $('sharesheet').scrollTop = 0;
+  cardCanvas = await makeCard();
+  $('cardimg').src = cardCanvas.toDataURL('image/png');
+}
+$('sharego').addEventListener('click', () => {
+  const words = shareWords(), url = gameUrl();
+  if (!cardCanvas) return;
+  cardCanvas.toBlob(async blob => {
+    const data = { text: words }; if (url) data.url = url;
+    try {
+      const file = blob && new File([blob], 'doubles-vendor.png', { type: 'image/png' });
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) data.files = [file];
+      await navigator.share(data);
+    } catch (e) {}
+  }, 'image/png');
+});
+$('copytext').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('sharetext').textContent); $('copytext').textContent = 'Copied'; }
+  catch (e) { const r = document.createRange(); r.selectNodeContents($('sharetext')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); $('copytext').textContent = 'Selected – now copy'; }
+  setTimeout(() => { $('copytext').textContent = 'Copy the words'; }, 1800);
+});
+$('shareback').addEventListener('click', () => { $('sharesheet').hidden = true; });
+$('app').addEventListener('click', e => {
+  if (e.target.closest('[data-board]')) openBoard();
+  else if (e.target.closest('[data-share]')) openShare();
+});
 
 if (S.day > 1 || S.money > 0) { $('start').textContent = 'Continue – Day ' + S.day; $('reset').hidden = false; }
 renderTray(); hud(); requestAnimationFrame(tick);

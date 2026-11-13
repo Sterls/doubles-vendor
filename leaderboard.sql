@@ -1,0 +1,18 @@
+-- Doubles Vendor worldwide leaderboard (Supabase / Postgres).
+-- Run once in the Supabase SQL editor, then put the project URL and the
+-- publishable (anon) key into BOARD in index.html.
+create table public.scores (
+  id bigint generated always as identity primary key,
+  pid uuid not null,
+  name text not null check (char_length(name) between 1 and 16),
+  score integer not null check (score between 1 and 1000000),
+  loc smallint not null check (loc between 0 and 4),
+  day integer not null check (day between 1 and 100000),
+  created_at timestamptz not null default now()
+);
+create index scores_score_idx on public.scores (score desc);
+
+alter table public.scores enable row level security;
+-- Anyone can read the board and add a score; nobody can edit or delete from the game.
+create policy "read scores" on public.scores for select to anon using (true);
+create policy "add scores" on public.scores for insert to anon with check (true);
