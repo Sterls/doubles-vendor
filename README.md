@@ -1,4 +1,4 @@
-# Doubles Tycoon
+# Doubles Vendor
 
 Run a Trinidad doubles stand. Build each order (two bara, channa, pepper, toppings), then **shake the phone to wrap it** and hand it over. Spend the day's takings on toppings, helpers and better locations, from under the mango tree to Piarco Airport.
 

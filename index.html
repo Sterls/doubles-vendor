@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#19b5c9">
 </head>
 <body>
-<title>Doubles Tycoon</title>
+<title>Doubles Vendor</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&family=Nunito:wght@600;800;900&display=swap">
 <style>
@@ -171,7 +171,7 @@ button:focus-visible { outline: 3px solid var(--cream); outline-offset: 2px; }
   <div class="tray" id="tray"></div>
 
   <div class="sheet" id="title">
-    <h1>Doubles Tycoon</h1>
+    <h1>Doubles Vendor</h1>
     <p>Hot bara, curry channa, and a line down the road. Run the stand, wrap fast, and build a doubles empire from under the mango tree to Piarco Airport.</p>
     <ul class="steps">
       <li><b>Build it.</b> Two bara, channa, then pepper and toppings how the customer call it.</li>
@@ -220,8 +220,8 @@ const DAY_LEN = 60;
 const fresh = () => ({ money: 0, day: 1, rep: 3, tops: [], lv: { recipe: 0, sign: 0, radio: 0, helper: 0, drinks: 0 }, loc: 0, won: false, mute: false });
 
 let S = fresh();
-try { const raw = localStorage.getItem('doubles-tycoon'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch (e) {}
-const save = () => { try { localStorage.setItem('doubles-tycoon', JSON.stringify(S)); } catch (e) {} };
+try { const raw = localStorage.getItem('doubles-vendor'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch (e) {}
+const save = () => { try { localStorage.setItem('doubles-vendor', JSON.stringify(S)); } catch (e) {} };
 
 let playing = false, tLeft = DAY_LEN, spawnIn = 0, queue = [], uid = 0;
 let build = { bara: 0, channa: false, pepper: 0, tops: new Set() };
@@ -532,7 +532,7 @@ function renderShop() {
 $('shop').addEventListener('click', e => {
   const b = e.target.closest('button[data-buy]'); if (!b || b.disabled) return;
   const k = b.dataset.buy; let cost;
-  if (k === 'loc') { cost = LOCS[S.loc + 1].cost; S.loc++; if (S.loc === LOCS.length - 1 && !S.won) { S.won = true; $('endtitle').textContent = 'Yuh is a real Doubles Tycoon!'; $('dayend').scrollTop = 0; } }
+  if (k === 'loc') { cost = LOCS[S.loc + 1].cost; S.loc++; if (S.loc === LOCS.length - 1 && !S.won) { S.won = true; $('endtitle').textContent = 'Yuh is the top doubles vendor in the land!'; $('dayend').scrollTop = 0; } }
   else if (k.startsWith('top-')) { const t = TOPS.find(t => t.id === k.slice(4)); cost = t.cost; S.tops.push(t.id); }
   else { const u = UPS.find(u => u.id === k.slice(3)); cost = u.cost(S.lv[u.id]); S.lv[u.id]++; }
   S.money -= cost; sfx.buy(); save(); renderShop(); hud();
