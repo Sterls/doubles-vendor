@@ -379,10 +379,16 @@ function renderBubble() {
   const c = queue[0], bub = $('bubble');
   bub.classList.toggle('empty', !c);
   if (!c) return;
-  const want = [...c.tops].map(id => TOPS.find(t => t.id === id));
-  $('say').innerHTML = `One doubles, <em>${PEPPER[c.pepper]}</em>` + (want.length ? ', with ' + want.map(t => t.name.toLowerCase()).join(' and ') : S.tops.length ? ', nothing else' : '') + '!';
-  let chips = `<span class="chip ${build.pepper === c.pepper ? 'ok' : ''}">${PEPPER[c.pepper]}</span>`;
-  want.forEach(t => chips += `<span class="chip ${build.tops.has(t.id) ? 'ok' : ''}">${t.name}</span>`);
+  // Each customer calls the order in their own random sequence, fixed for as long as they wait.
+  if (!c.ask) { c.ask = ['pepper', ...c.tops]; for (let i = c.ask.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [c.ask[i], c.ask[j]] = [c.ask[j], c.ask[i]]; } }
+  const words = c.ask.map(id => id === 'pepper' ? `<em>${PEPPER[c.pepper]}</em>` : TOPS.find(t => t.id === id).name.toLowerCase());
+  const list = words.length > 1 ? words.slice(0, -1).join(', ') + ' and ' + words[words.length - 1] : words[0];
+  $('say').innerHTML = 'One doubles with ' + list + (c.ask.length === 1 && S.tops.length ? ', nothing else' : '') + '!';
+  let chips = '';
+  c.ask.forEach(id => {
+    if (id === 'pepper') chips += `<span class="chip ${build.pepper === c.pepper ? 'ok' : ''}">${PEPPER[c.pepper]}</span>`;
+    else chips += `<span class="chip ${build.tops.has(id) ? 'ok' : ''}">${TOPS.find(t => t.id === id).name}</span>`;
+  });
   build.tops.forEach(id => { if (!c.tops.has(id)) chips += `<span class="chip bad">no ${TOPS.find(t => t.id === id).name.toLowerCase()}!</span>`; });
   $('chips').innerHTML = chips;
 }
