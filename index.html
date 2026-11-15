@@ -109,7 +109,7 @@ button:focus-visible { outline: 3px solid var(--cream); outline-offset: 2px; }
 .ing .sw { width: 30px; height: 22px; border-radius: 50%; border: 2px solid var(--ink); }
 .ing.on { background: var(--sun); }
 .ing.bin { background: #cfc4ae; }
-.ing span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.ing span { max-width: 100%; text-align: center; overflow-wrap: anywhere; font-size: clamp(10px, 3.2vw, 12px); }
 
 /* Overlays */
 .sheet { position: absolute; inset: 0; z-index: 20; background: var(--red); color: var(--cream); display: flex; flex-direction: column; padding-block: 18px; padding-left: var(--gl); padding-right: var(--gr); overflow-y: auto; -webkit-overflow-scrolling: touch; }
