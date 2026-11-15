@@ -55,11 +55,8 @@ button:focus-visible { outline: 3px solid var(--cream); outline-offset: 2px; }
 .daybar > div { height: 100%; width: 0; background: var(--sun); }
 
 /* Scene */
-.scene { position: relative; flex: 1 1 36%; min-height: 0; background: linear-gradient(var(--sky) 0 62%, #f3d9a0 62% 100%); overflow: hidden; }
-.scene .sun { position: absolute; right: 9%; top: 8%; width: 54px; height: 54px; border-radius: 50%; background: var(--sun); box-shadow: 0 0 0 10px rgba(255,210,63,.3); }
-.scene .hills { position: absolute; left: 0; right: 0; bottom: 38%; height: 26%; background:
-  radial-gradient(60% 100% at 20% 100%, var(--leaf) 99%, transparent 100%),
-  radial-gradient(50% 80% at 75% 100%, #23803b 99%, transparent 100%); }
+.scene { position: relative; flex: 1 1 36%; min-height: 0; background: var(--sky); overflow: hidden; }
+#backdrop { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .bubble { position: absolute; z-index: 3; top: 8px; left: var(--gl); right: var(--gr); background: var(--cream); border: 3px solid var(--ink); border-radius: 16px; padding: 8px 12px 10px; box-shadow: 4px 4px 0 var(--ink); transition: opacity .15s; }
 .bubble::after { content: ""; position: absolute; left: 44px; bottom: -14px; border: 7px solid transparent; border-top-color: var(--ink); }
 .bubble.empty { opacity: .0; }
@@ -165,7 +162,7 @@ button:focus-visible { outline: 3px solid var(--cream); outline-offset: 2px; }
   <div class="daybar"><div id="daybar"></div></div>
 
   <div class="scene" id="scene">
-    <div class="sun"></div><div class="hills"></div>
+    <svg id="backdrop" viewBox="0 0 400 260" preserveAspectRatio="xMidYMax slice" aria-hidden="true"></svg>
     <div class="bubble empty" id="bubble"><div class="say" id="say"></div><div class="chips" id="chips"></div></div>
     <div class="queue" id="queue"></div>
     <div class="counter"></div>
@@ -511,6 +508,76 @@ function hint() {
 }
 
 /* ---------- HUD + loop ---------- */
+/* ---------- location backdrops (viewBox 400x260; the counter hides everything below y=221) ---------- */
+function drawBackdrop() {
+  const K = '#1c130d', O = `stroke="${K}" stroke-width="2.5" stroke-linejoin="round"`;
+  const box = (x, y, w, h, f, extra) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${f}" ${O} ${extra || ''}/>`;
+  const sign = (x, y, w, h, bg, fg, txt, size) => box(x, y, w, h, bg) + `<text x="${x + w / 2}" y="${y + h / 2 + size * .36}" text-anchor="middle" font-family="'Bowlby One','Arial Black',sans-serif" font-size="${size}" fill="${fg}">${txt}</text>`;
+  const sun = (x, y) => `<circle cx="${x}" cy="${y}" r="26" fill="#ffd23f" opacity=".35"/><circle cx="${x}" cy="${y}" r="18" fill="#ffd23f"/>`;
+  const range = (y, f) => `<path d="M0 ${y + 30} L0 ${y + 8} Q40 ${y - 14} 80 ${y + 2} Q120 ${y - 26} 170 ${y - 6} Q215 ${y - 30} 262 ${y - 4} Q310 ${y - 22} 350 ${y} Q380 ${y - 12} 400 ${y + 4} L400 ${y + 30}Z" fill="${f}"/>`;
+  const palm = (x, y, h) => { let o = `<path d="M${x} ${y} Q${x + 6} ${y - h / 2} ${x + 2} ${y - h}" stroke="#6b4a2a" stroke-width="5" fill="none" stroke-linecap="round"/>`; for (const [dx, dy] of [[-26, -4], [-20, 12], [24, -6], [22, 12], [0, -18]]) o += `<path d="M${x + 2} ${y - h} Q${x + 2 + dx / 2} ${y - h - 12 + dy / 3} ${x + 2 + dx} ${y - h + dy}" stroke="#1f7a34" stroke-width="6" fill="none" stroke-linecap="round"/>`; return o; };
+  const pole = (x, top) => `<rect x="${x}" y="${top}" width="5" height="${178 - top}" fill="#5a4632" stroke="${K}" stroke-width="1.5"/><rect x="${x - 12}" y="${top + 6}" width="29" height="4" fill="#5a4632" stroke="${K}" stroke-width="1.5"/>`;
+  const wires = (x1, x2, y) => [0, 5, 22].map(d => `<path d="M${x1} ${y + d} Q${(x1 + x2) / 2} ${y + d + 14} ${x2} ${y + d}" stroke="${K}" stroke-width="1.2" fill="none"/>`).join('');
+  const road = (y, dash) => `<rect x="0" y="${y}" width="400" height="${260 - y}" fill="#4b4a50"/><rect x="0" y="${y - 7}" width="400" height="8" fill="#b9b3a6" stroke="${K}" stroke-width="1.5"/>` + (dash ? [10, 90, 170, 250, 330].map(x => `<rect x="${x}" y="${y + 24}" width="44" height="5" fill="#ffd23f"/>`).join('') : '');
+  const win = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#bfe6ee" stroke="${K}" stroke-width="1.5"/>`;
+  const galv = (x, y, w, f) => { let o = `<path d="M${x - 6} ${y + 14} L${x + 4} ${y} L${x + w - 4} ${y} L${x + w + 6} ${y + 14}Z" fill="${f}" ${O}/>`; for (let i = x + 6; i < x + w; i += 8) o += `<path d="M${i} ${y + 1} L${i} ${y + 13}" stroke="${K}" stroke-width="1" opacity=".45"/>`; return o; };
+  const tree = (x, y, f, r) => `<rect x="${x - 3}" y="${y}" width="6" height="${172 - y}" fill="#6b4a2a" stroke="${K}" stroke-width="1.5"/><circle cx="${x - r * .6}" cy="${y + 2}" r="${r * .75}" fill="${f}" ${O}/><circle cx="${x + r * .6}" cy="${y + 4}" r="${r * .7}" fill="${f}" ${O}/><circle cx="${x}" cy="${y - r * .5}" r="${r}" fill="${f}" ${O}/>`;
+  let s = '';
+  if (S.loc === 0) { // country roadside under a mango tree
+    s = `<rect width="400" height="260" fill="#19b5c9"/>` + sun(70, 60) + range(128, '#2c9a48') + range(150, '#23803b') +
+      `<rect x="0" y="162" width="400" height="98" fill="#6dbb4f"/><path d="M0 196 Q200 182 400 196 L400 260 L0 260Z" fill="#d9b98a" stroke="${K}" stroke-width="2"/>` +
+      `<path d="M318 190 Q312 150 322 112 L338 112 Q336 150 344 190Z" fill="#6b4a2a" ${O}/>` +
+      [[290, 96, 34], [352, 100, 34], [322, 70, 40], [270, 120, 24], [376, 124, 24]].map(c => `<circle cx="${c[0]}" cy="${c[1]}" r="${c[2]}" fill="#1f7a34" ${O}/>`).join('') +
+      [[282, 112], [305, 86], [340, 100], [362, 122], [322, 124], [270, 132], [350, 72]].map(m => `<ellipse cx="${m[0]}" cy="${m[1]}" rx="5" ry="7" fill="#f6a21c" stroke="${K}" stroke-width="1.5" transform="rotate(20 ${m[0]} ${m[1]})"/>`).join('');
+  } else if (S.loc === 1) { // Curepe Junction: shopfronts, poles and wires, maxi taxi, traffic light
+    s = `<rect width="400" height="260" fill="#63c4d8"/>` + sun(350, 44) + range(104, '#5f9f86') +
+      box(-4, 96, 92, 82, '#f2c14e') + win(6, 104, 20, 18) + win(34, 104, 20, 18) + win(62, 104, 20, 18) + sign(2, 130, 80, 14, '#d7261e', '#fff', 'PHARMACY', 9) + box(8, 148, 28, 30, '#7a4a24') + win(46, 150, 34, 20) +
+      box(88, 84, 84, 94, '#e9ecef') + win(96, 92, 16, 20) + win(120, 92, 16, 20) + win(144, 92, 16, 20) + `<path d="M86 132 L174 132 L180 146 L80 146Z" fill="#1c7a5a" ${O}/>` + sign(96, 114, 68, 14, '#1c130d', '#ffd23f', 'ROTI SHOP', 8.5) + win(96, 150, 30, 22) + box(136, 150, 26, 28, '#35485c') +
+      box(172, 104, 70, 74, '#f08a5d') + sign(178, 110, 58, 16, '#fff4d6', '#d7261e', 'BAR', 11) + win(180, 134, 22, 16) + win(210, 134, 22, 16) + box(196, 154, 22, 24, '#5a3416') +
+      box(242, 90, 96, 88, '#8fc1e3') + win(250, 98, 22, 16) + win(280, 98, 22, 16) + win(310, 98, 22, 16) + sign(248, 120, 84, 14, '#ffd23f', '#1c130d', 'PHONE CARDS', 8) + `<path d="M240 138 L340 138 L346 150 L234 150Z" fill="#d7261e" ${O}/>` + win(250, 154, 36, 20) + box(300, 152, 26, 26, '#35485c') +
+      box(338, 108, 70, 70, '#c9a0dc') + win(346, 116, 20, 16) + win(374, 116, 20, 16) + sign(344, 138, 58, 13, '#fff', '#1c130d', 'VARIETY', 8) +
+      road(178, true) + pole(120, 40) + pole(300, 44) + wires(-10, 122, 48) + wires(122, 302, 48) + wires(302, 410, 52) +
+      // traffic light
+      `<rect x="214" y="70" width="4" height="108" fill="#35363a" stroke="${K}" stroke-width="1.5"/>` + box(207, 46, 18, 40, '#35363a', 'rx="3"') + `<circle cx="216" cy="54" r="4.5" fill="#d7261e"/><circle cx="216" cy="66" r="4.5" fill="#ffd23f"/><circle cx="216" cy="78" r="4.5" fill="#2c9a48"/>` +
+      // green junction sign
+      `<rect x="371" y="96" width="3" height="82" fill="#35363a"/>` + sign(336, 84, 72, 16, '#1c7a3a', '#fff', 'CUREPE JCT', 8) +
+      // red band maxi taxi
+      `<g transform="translate(246 152)"><rect x="0" y="0" width="104" height="44" rx="8" fill="#fff" ${O}/><rect x="1.5" y="24" width="101" height="8" fill="#d7261e"/><rect x="8" y="6" width="18" height="14" fill="#9fd6e6" stroke="${K}" stroke-width="1.5"/><rect x="30" y="6" width="18" height="14" fill="#9fd6e6" stroke="${K}" stroke-width="1.5"/><rect x="52" y="6" width="18" height="14" fill="#9fd6e6" stroke="${K}" stroke-width="1.5"/><path d="M76 6 L94 6 L100 20 L76 20Z" fill="#9fd6e6" stroke="${K}" stroke-width="1.5"/><circle cx="24" cy="44" r="8" fill="${K}"/><circle cx="24" cy="44" r="3" fill="#b9b3a6"/><circle cx="82" cy="44" r="8" fill="${K}"/><circle cx="82" cy="44" r="3" fill="#b9b3a6"/></g>`;
+  } else if (S.loc === 2) { // Debe: flat cane country, roadside food sheds under galvanize, jhandi flags
+    const stall = (x, w, wall, roof, name, bg, fg) => box(x, 128, w, 50, wall) + `<rect x="${x + 6}" y="146" width="${w - 12}" height="32" fill="#3b2a1c" stroke="${K}" stroke-width="1.5"/><rect x="${x + 6}" y="164" width="${w - 12}" height="6" fill="#d9d2c0" stroke="${K}" stroke-width="1.2"/>` + galv(x, 114, w, roof) + sign(x + 4, 130, w - 8, 13, bg, fg, name, 7.5);
+    const jhandi = (x, top, f) => `<path d="M${x} 178 L${x} ${top}" stroke="#b08a3c" stroke-width="2.5"/><path d="M${x} ${top} L${x + 18} ${top + 6} L${x} ${top + 13}Z" fill="${f}" stroke="${K}" stroke-width="1.5"/>`;
+    let cane = ''; for (let x = 0; x < 400; x += 6) cane += `<path d="M${x} 150 L${x + 2} ${118 + (x * 7 % 9)}" stroke="#4f9a3a" stroke-width="2.5"/>`;
+    s = `<rect width="400" height="260" fill="#8ad3e2"/>` + sun(60, 50) + `<path d="M0 126 Q200 112 400 126 L400 160 L0 160Z" fill="#7fbf63"/>` + `<rect x="0" y="120" width="400" height="34" fill="#a9d477"/>` + cane +
+      palm(18, 150, 70) + palm(386, 150, 62) + palm(196, 150, 78) +
+      `<rect x="0" y="150" width="400" height="30" fill="#c7b089"/>` +
+      stall(34, 96, '#f6d365', '#b9bcc0', 'DEBE DOUBLES', '#d7261e', '#fff') + stall(140, 88, '#f7a1b5', '#a65a3a', 'SAHEENA', '#1c7a3a', '#fff') + stall(238, 100, '#9ad7c7', '#c7402f', 'PHOLOURIE &amp; ALOO PIE', '#ffd23f', '#1c130d') +
+      jhandi(352, 70, '#d7261e') + jhandi(362, 86, '#ffd23f') + jhandi(372, 62, '#fff') + jhandi(344, 96, '#f47cb4') + jhandi(380, 92, '#f47c20') +
+      pole(132, 54) + wires(-10, 134, 62) + wires(134, 410, 62) + road(184, false) +
+      `<path d="M0 200 L400 200" stroke="#fff" stroke-width="3" stroke-dasharray="26 18" opacity=".8"/>`;
+  } else if (S.loc === 3) { // Queen's Park Savannah: Northern Range, grand old houses, poui trees, open green
+    s = `<rect width="400" height="260" fill="#35b9d0"/>` + sun(340, 42) + range(100, '#3d9a5c') + range(124, '#2c8a48') +
+      // red-and-cream college with clock tower
+      box(14, 112, 120, 48, '#c8463a') + [22, 44, 100, 118].map(x => `<path d="M${x} 158 L${x} 130 Q${x + 5} 122 ${x + 10} 130 L${x + 10} 158Z" fill="#fff4d6" stroke="${K}" stroke-width="1.5"/>`).join('') + `<rect x="14" y="108" width="120" height="6" fill="#fff4d6" stroke="${K}" stroke-width="1.5"/>` +
+      box(62, 70, 26, 90, '#c8463a') + `<path d="M58 70 L75 46 L92 70Z" fill="#7b8794" ${O}/><circle cx="75" cy="88" r="8" fill="#fff4d6" stroke="${K}" stroke-width="2"/><path d="M75 88 L75 83 M75 88 L79 90" stroke="${K}" stroke-width="1.5"/><rect x="69" y="132" width="12" height="28" fill="#5a3416" stroke="${K}" stroke-width="1.5"/>` +
+      // stone castle with turret
+      box(166, 118, 70, 42, '#9aa3ad') + box(222, 92, 24, 68, '#8a939d') + `<path d="M222 92 l0 -8 l6 0 l0 5 l6 0 l0 -5 l6 0 l0 5 l6 0 l0 -5 l0 8Z" fill="#8a939d" ${O}/><path d="M166 118 l0 -6 l8 0 l0 4 l8 0 l0 -4 l8 0 l0 4 l8 0 l0 -4 l8 0 l0 4 l8 0 l0 -4 l8 0 l0 6Z" fill="#9aa3ad" ${O}/>` + win(176, 128, 10, 16) + win(196, 128, 10, 16) + win(229, 104, 9, 14) +
+      // gingerbread mansion
+      box(276, 116, 92, 44, '#f3e6c4') + `<path d="M270 118 L322 86 L374 118Z" fill="#7a9e7e" ${O}/>` + win(286, 126, 12, 18) + win(306, 126, 12, 18) + win(346, 126, 12, 18) + `<rect x="324" y="130" width="14" height="30" fill="#5a3416" stroke="${K}" stroke-width="1.5"/>` +
+      `<rect x="0" y="158" width="400" height="102" fill="#58b548"/><path d="M0 158 L400 158" stroke="${K}" stroke-width="2"/>` +
+      `<path d="M0 204 Q200 190 400 204 L400 260 L0 260Z" fill="#8a8a90" stroke="${K}" stroke-width="2"/>` +
+      tree(150, 118, '#ffd23f', 17) + tree(256, 122, '#f58fb3', 15) + tree(384, 114, '#ffd23f', 18) + tree(8, 126, '#f58fb3', 14);
+  } else { // Piarco: terminal, control tower, plane climbing out
+    s = `<rect width="400" height="260" fill="#49bfe0"/>` + sun(52, 46) + range(132, '#5fa98a') +
+      `<g transform="translate(286 70) rotate(-14) scale(.72)"><path d="M0 14 Q4 4 22 4 L92 4 Q112 6 118 14 Q112 22 92 24 L22 24 Q4 24 0 14Z" fill="#fff" ${O}/><path d="M4 6 L-8 -14 L8 -14 L22 4Z" fill="#d7261e" ${O}/><path d="M48 20 L30 44 L46 44 L72 22Z" fill="#dfe6ea" ${O}/><path d="M98 9 L110 9" stroke="${K}" stroke-width="3" stroke-linecap="round"/>${[34, 46, 58, 70, 82].map(x => `<circle cx="${x}" cy="11" r="2.2" fill="#35485c"/>`).join('')}</g>` +
+      // control tower
+      box(46, 84, 16, 92, '#dfe6ea') + `<path d="M34 84 L74 84 L70 64 L38 64Z" fill="#9fd6e6" ${O}/><rect x="36" y="58" width="36" height="7" fill="#35485c" stroke="${K}" stroke-width="1.5"/><path d="M54 58 L54 44" stroke="${K}" stroke-width="2"/><circle cx="54" cy="42" r="3" fill="#d7261e"/>` +
+      // terminal with curved roof and glass front
+      `<path d="M84 128 Q236 80 392 128 L392 138 L84 138Z" fill="#fff" ${O}/>` + box(90, 138, 300, 40, '#9fd6e6') + [120, 150, 180, 210, 240, 270, 300, 330, 360].map(x => `<path d="M${x} 138 L${x} 178" stroke="${K}" stroke-width="1.5"/>`).join('') + `<path d="M90 156 L390 156" stroke="${K}" stroke-width="1.5"/>` +
+      sign(150, 108, 176, 18, '#1c130d', '#fff', 'PIARCO INTERNATIONAL', 9.5) + sign(214, 158, 54, 20, '#35485c', '#ffd23f', 'DEPARTURES', 6.5) +
+      palm(100, 178, 44) + palm(380, 178, 40) + road(184, true);
+  }
+  $('backdrop').innerHTML = s;
+}
 function hud() {
   $('money').textContent = money(S.money);
   const mins = Math.floor((1 - tLeft / DAY_LEN) * 240), h = 6 + Math.floor(mins / 60);
@@ -547,7 +614,7 @@ function startDay() {
   stats = { served: 0, perfect: 0, lost: 0, sales: 0, tips: 0, drinks: 0, cost: 0 };
   tLeft = DAY_LEN; spawnIn = .8; queue.forEach(c => c.el.remove()); queue = [];
   $('title').hidden = true; $('dayend').hidden = true;
-  playing = true; renderTray(); clearBuild(); hint(); hud();
+  playing = true; drawBackdrop(); renderTray(); clearBuild(); hint(); hud();
 }
 function endDay() {
   playing = false;
@@ -724,7 +791,7 @@ $('app').addEventListener('click', e => {
 });
 
 if (S.day > 1 || S.money > 0) { $('start').textContent = 'Continue – Day ' + S.day; $('reset').hidden = false; }
-renderTray(); hud(); requestAnimationFrame(tick);
+drawBackdrop(); renderTray(); hud(); requestAnimationFrame(tick);
 })();
 </script>
 </body>
