@@ -422,8 +422,9 @@ function tapIng(id) {
   else if (!build.bara) return toast('Bara first!');
   else if (id === 'channa') { if (build.channa) return toast('Channa already on'); build.channa = true; }
   else if (!build.channa) return toast('Put the channa first!');
-  else if (id === 'pepper') build.pepper = (build.pepper + 1) % 4;
-  else build.tops.has(id) ? build.tops.delete(id) : build.tops.add(id);
+  else if (id === 'pepper') { if (build.pepper >= 3) return toast('Pepper cyah come off. Bin it or serve it!'); build.pepper++; }
+  else if (build.tops.has(id)) return toast('It on already. Bin it or serve it!');
+  else build.tops.add(id);
   sfx.tap(); refresh();
 }
 $('tray').addEventListener('click', e => { const b = e.target.closest('.ing'); if (b) tapIng(b.dataset.id); });
@@ -465,7 +466,7 @@ function wrap() {
   stats.served++; stats.sales += paid; stats.tips += tip; stats.drinks += drinks; stats.cost += cost; if (miss === 0) stats.perfect++;
   setTimeout(() => {
     floatText('+' + money(paid + tip + drinks), miss > 0);
-    if (miss === 0) sfx.coin(); else { sfx.bad(); toast(miss === 1 ? 'Steups. Dais not what I order' : 'Dat is not my order!'); }
+    if (miss === 0) sfx.coin(); else { sfx.bad(); toast(miss === 1 ? 'Steups. Dais not what I order' : 'Bwdmc! Dais not my order!'); }
     leave(c, miss === 0); hud();
   }, 420);
   clearBuild();
