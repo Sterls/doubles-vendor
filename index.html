@@ -189,7 +189,7 @@ button:focus-visible { outline: 3px solid var(--cream); outline-offset: 2px; }
     <h1>Doubles Vendor</h1>
     <p>Hot bara, curry channa, and a line down the road. Run the stand, wrap fast, and build a doubles empire from under the mango tree to Piarco Airport.</p>
     <ul class="steps">
-      <li><b>Build it.</b> Two bara, channa, then pepper and toppings how the customer call it.</li>
+      <li><b>Build it.</b> One bara, channa, then pepper and toppings how the customer call it. The second bara closes it up.</li>
       <li><b>Shake yuh phone</b> to wrap the doubles and hand it over. No shake? Tap WRAP.</li>
       <li><b>Spend the takings</b> after closing on toppings, helpers and better spots.</li>
     </ul>
@@ -253,7 +253,7 @@ const UPS = [
   { id: 'recipe', name: 'Ma’s channa recipe', max: 6, cost: l => Math.round(40 * Math.pow(1.9, l)), blurb: 'Every doubles sells for $1 more.' },
   { id: 'sign', name: 'Bigger sign', max: 4, cost: l => 60 * Math.pow(2, l), blurb: 'More customers find the stand.' },
   { id: 'radio', name: 'Soca on the radio', max: 3, cost: l => 80 * Math.pow(2, l), blurb: 'Customers wait longer before they vex.' },
-  { id: 'helper', name: 'Cousin helping out', max: 2, cost: l => [150, 500][l], blurb: 'Lays out the bara for you. Second level adds the channa too.' },
+  { id: 'helper', name: 'Cousin helping out', max: 2, cost: l => [150, 500][l], blurb: 'Lays out the first bara for you. Second level adds the channa too.' },
   { id: 'drinks', name: 'Cooler of sweet drinks', max: 3, cost: l => Math.round(120 * Math.pow(2.2, l)), blurb: 'Every served customer buys a drink.' }
 ];
 const PEPPER = ['no pepper', 'slight pepper', 'medium pepper', 'plenty pepper'];
@@ -303,7 +303,6 @@ function drawFood() {
     return o;
   };
   if (b.bara >= 1) s += bara(96, 110);
-  if (b.bara >= 2) s += bara(146, 96);
   if (b.channa) {
     s += '<ellipse cx="121" cy="102" rx="60" ry="32" fill="#c4841a" stroke="#1c130d" stroke-width="3"/>';
     for (let i = 0; i < 24; i++) { const a = r() * 6.283, d = Math.sqrt(r()); s += `<circle cx="${121 + Math.cos(a) * d * 50}" cy="${102 + Math.sin(a) * d * 24}" r="6.5" fill="#ecd08a" stroke="#8a5d14" stroke-width="1.5"/>`; }
@@ -315,6 +314,7 @@ function drawFood() {
   if (b.tops.has('cucumber')) for (let i = 0; i < 12; i++) { const x = 78 + r2() * 84, y = 84 + r2() * 34, a = r2() * 180; s += `<rect x="${x}" y="${y}" width="16" height="4" rx="2" fill="#7ccf6b" stroke="#2c7a2c" stroke-width="1" transform="rotate(${a} ${x} ${y})"/>`; }
   if (b.tops.has('kuchela')) for (let i = 0; i < 9; i++) { const x = 82 + r2() * 78, y = 86 + r2() * 30; s += `<circle cx="${x}" cy="${y}" r="5" fill="#e07a1f" stroke="#8a3d0a" stroke-width="1.5"/>`; }
   for (let i = 0; i < b.pepper * 5; i++) s += `<circle cx="${76 + r2() * 90}" cy="${82 + r2() * 40}" r="4" fill="#d7261e" stroke="#7a0d08" stroke-width="1.2"/>`;
+  if (b.bara >= 2) s += bara(152, 82);
   if (!b.bara) s += '<text x="120" y="108" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="15" fill="#7a5a30">Start with the bara</text>';
   $('food').innerHTML = s;
 }
@@ -412,7 +412,7 @@ function refresh() {
   $('wrap').classList.toggle('ready', build.bara === 2 && build.channa);
 }
 function clearBuild() {
-  build = { bara: S.lv.helper >= 1 ? 2 : 0, channa: S.lv.helper >= 2, pepper: 0, tops: new Set() };
+  build = { bara: S.lv.helper >= 1 ? 1 : 0, channa: S.lv.helper >= 2, pepper: 0, tops: new Set() };
   refresh();
 }
 function tapIng(id) {
@@ -420,6 +420,7 @@ function tapIng(id) {
   if (id === 'bin') { build = { bara: 0, channa: false, pepper: 0, tops: new Set() }; sfx.bad(); return refresh(); }
   if (id === 'bara') { if (build.bara >= 2) return toast('Is doubles, not triples!'); build.bara++; }
   else if (!build.bara) return toast('Bara first!');
+  else if (build.bara >= 2) return toast('It close up already. Bin it or serve it!');
   else if (id === 'channa') { if (build.channa) return toast('Channa already on'); build.channa = true; }
   else if (!build.channa) return toast('Put the channa first!');
   else if (id === 'pepper') { if (build.pepper >= 3) return toast('Pepper cyah come off. Bin it or serve it!'); build.pepper++; }
