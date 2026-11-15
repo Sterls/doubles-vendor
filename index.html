@@ -144,6 +144,13 @@ button:focus-visible { outline: 3px solid var(--cream); outline-offset: 2px; }
 .second:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
 .row2 { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
 .row2 > * { flex: 1 1 120px; }
+#vs { z-index: 30; }
+#vs > div { display: flex; flex-direction: column; }
+.code { margin-top: 12px; font-family: var(--display); font-size: clamp(56px, 22vw, 96px); letter-spacing: .12em; text-align: center; color: var(--sun); text-shadow: 4px 4px 0 var(--ink); line-height: 1; }
+#vscount { position: absolute; inset: 0; z-index: 25; display: flex; align-items: center; justify-content: center; font-family: var(--display); font-size: 150px; color: var(--sun); -webkit-text-stroke: 4px var(--ink); paint-order: stroke fill; text-shadow: 8px 8px 0 var(--ink); background: rgba(28,19,13,.35); pointer-events: none; }
+#app.rush .hud .mid span { color: var(--sun); }
+#app.rush .daybar > div { background: #fff; }
+#app.rush .hud { background: var(--red-deep); }
 #board { z-index: 30; } #sharesheet { z-index: 40; }
 .ledger .rank { display: grid; grid-template-columns: 2em minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 6px 0; font-size: 15px; border-bottom: 2px dashed rgba(28,19,13,.2); font-variant-numeric: tabular-nums; }
 .rank:last-child { border-bottom: 0; }
@@ -152,7 +159,7 @@ button:focus-visible { outline: 3px solid var(--cream); outline-offset: 2px; }
 .rank .amt { font-family: var(--display); color: var(--red); }
 .ledger .rank.me { background: var(--sun); margin: 0 -8px; padding: 6px 8px; border-radius: 8px; border-bottom-color: transparent; }
 .namelab { margin-top: 16px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
-#vname { margin-top: 6px; font: inherit; font-size: 17px; padding: 11px 12px; border: 3px solid var(--ink); border-radius: 12px; background: var(--cream); color: var(--ink); -webkit-user-select: text; user-select: text; width: 100%; box-sizing: border-box; }
+#vname, .field { margin-top: 6px; font: inherit; font-size: 17px; padding: 11px 12px; border: 3px solid var(--ink); border-radius: 12px; background: var(--cream); color: var(--ink); -webkit-user-select: text; user-select: text; width: 100%; box-sizing: border-box; }
 #cardimg { margin-top: 10px; width: 100%; max-width: 340px; align-self: center; border: 4px solid var(--ink); border-radius: 12px; box-shadow: 4px 4px 0 var(--ink); -webkit-touch-callout: default; }
 #sharetext { -webkit-user-select: text; user-select: text; }
 @media (prefers-reduced-motion: reduce) { .wrapbtn.ready { animation: none; } .cust { transition: none; } }
@@ -197,7 +204,7 @@ button:focus-visible { outline: 3px solid var(--cream); outline-offset: 2px; }
       <li><b>Spend the takings</b> after closing on toppings, helpers and better spots.</li>
     </ul>
     <button class="big" id="start" type="button">Open the stand</button>
-    <div class="row2"><button class="second" type="button" data-board>Leaderboard</button></div>
+    <div class="row2"><button class="second" type="button" id="openvs">Vs a friend</button><button class="second" type="button" data-board>Leaderboard</button></div>
     <button class="linkbtn" id="reset" type="button" hidden>Start over from Day 1</button>
   </div>
 
@@ -209,6 +216,30 @@ button:focus-visible { outline: 3px solid var(--cream); outline-offset: 2px; }
     <div class="shop" id="shop"></div>
     <button class="big" id="next" type="button">Open for Day 2</button>
   </div>
+
+  <div class="sheet" id="vs" hidden>
+    <h2 id="vstitle">Vs a friend</h2>
+    <p id="vsnote"></p>
+    <div id="vs-home">
+      <label class="namelab" for="vsname">Name on your stand</label>
+      <input class="field" id="vsname" type="text" maxlength="16" autocomplete="off" placeholder="Auntie Dolly's">
+      <button class="big" id="vshost" type="button">Start a match</button>
+      <label class="namelab" for="vscode">Or join with a friend's code</label>
+      <input class="field" id="vscode" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="ABCD">
+      <button class="big" id="vsjoin" type="button">Join the match</button>
+    </div>
+    <div id="vs-lobby" hidden>
+      <div class="code" id="vscodebig"></div>
+      <div class="row2"><button class="second" type="button" id="vslink">Send the link</button></div>
+      <button class="big" id="vsgo" type="button">Start the rush</button>
+    </div>
+    <div id="vs-result" hidden>
+      <div class="ledger" id="vsscores"></div>
+      <button class="big" id="vsagain" type="button">Rematch</button>
+    </div>
+    <button class="linkbtn" id="vsleave" type="button">Back to my stand</button>
+  </div>
+  <div id="vscount" hidden></div>
 
   <div class="sheet" id="board" hidden>
     <h2>Top vendors</h2>
@@ -265,8 +296,13 @@ const fresh = () => ({ money: 0, day: 1, rep: 3, tops: [], lv: { recipe: 0, sign
 
 let S = fresh();
 try { const raw = localStorage.getItem('doubles-vendor'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch (e) {}
-const save = () => { try { localStorage.setItem('doubles-vendor', JSON.stringify(S)); } catch (e) {} };
+const save = () => { if (career) return; try { localStorage.setItem('doubles-vendor', JSON.stringify(S)); } catch (e) {} };
 
+// Vs mode: a 90-second match against a friend on a fresh stand. While it runs, S is a throwaway
+// match state and the career game waits untouched in `career`.
+const VS_LEN = 90, RUSH = 15;
+const vs = { on: false, net: null, code: '', host: false, id: Math.random().toString(36).slice(2, 10), opp: null, seed: 1, k: 0, endAt: 0, done: false, hello: 0, beat: 0, sec: 0 };
+let career = null;
 let playing = false, tLeft = DAY_LEN, spawnIn = 0, queue = [], uid = 0;
 let build = { bara: 0, channa: false, pepper: 0, tops: new Set() };
 let stats = null, motionOn = false, motionSeen = false;
@@ -344,21 +380,25 @@ function custSvg(c) {
 function patienceMax() { return (15 + 2 * S.tops.length) * (1 + .2 * S.lv.radio); }
 function spawn() {
   if (queue.length >= 4) return;
+  // In a match every customer is generated from the shared seed, so both players face the same orders.
+  const R = vs.on ? rng(1 + (vs.seed + (++vs.k) * 7919) % 2147483000) : Math.random;
+  if (vs.on) { R(); R(); }
+  const u = vs.on ? Math.floor((VS_LEN - tLeft) / 10) / 8 : 0; // steps of ten seconds, so both players get the same order sizes
   // From Curepe Junction on, a customer may order up to three doubles; under the mango tree it is always one.
-  const nr = Math.random(), n = S.loc === 0 ? 1 : S.loc === 1 ? (nr < .5 ? 1 : nr < .85 ? 2 : 3) : (nr < .35 ? 1 : nr < .75 ? 2 : 3);
+  const nr = R(), n = vs.on ? (nr < .7 - .55 * u ? 1 : nr < .95 - .4 * u ? 2 : 3) : S.loc === 0 ? 1 : S.loc === 1 ? (nr < .5 ? 1 : nr < .85 ? 2 : 3) : (nr < .35 ? 1 : nr < .75 ? 2 : 3);
   const items = [];
   for (let i = 0; i < n; i++) {
-    if (i && Math.random() < .45) { const o = items[Math.floor(Math.random() * i)]; items.push({ pepper: o.pepper, tops: new Set(o.tops), ask: o.ask }); continue; }
-    const pr = Math.random(), it = { pepper: pr < .2 ? 0 : pr < .55 ? 1 : pr < .8 ? 2 : 3, tops: new Set(S.tops.filter(() => Math.random() < .45)) };
+    if (i && R() < .45) { const o = items[Math.floor(R() * i)]; items.push({ pepper: o.pepper, tops: new Set(o.tops), ask: o.ask }); continue; }
+    const pr = R(), it = { pepper: pr < .2 ? 0 : pr < .55 ? 1 : pr < .8 ? 2 : 3, tops: new Set(S.tops.filter(() => R() < .45)) };
     // Each doubles is called in its own random sequence, fixed for as long as the customer waits.
     it.ask = ['pepper', ...it.tops];
-    for (let k = it.ask.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [it.ask[k], it.ask[j]] = [it.ask[j], it.ask[k]]; }
+    for (let k = it.ask.length - 1; k > 0; k--) { const j = Math.floor(R() * (k + 1)); [it.ask[k], it.ask[j]] = [it.ask[j], it.ask[k]]; }
     items.push(it);
   }
   const c = {
     id: ++uid, items, cur: 0, miss: 0,
-    max: patienceMax() * (1 + .6 * (n - 1)), skin: SKIN[uid * 7 % SKIN.length], shirt: SHIRT[Math.floor(Math.random() * SHIRT.length)],
-    shirt2: SHIRT[Math.floor(Math.random() * SHIRT.length)], hair: Math.floor(Math.random() * 5)
+    max: (vs.on ? 22 - 8 * Math.min(1, u) : patienceMax()) * (1 + .6 * (n - 1)), skin: SKIN[uid * 7 % SKIN.length], shirt: SHIRT[Math.floor(R() * SHIRT.length)],
+    shirt2: SHIRT[Math.floor(R() * SHIRT.length)], hair: Math.floor(R() * 5)
   };
   c.pat = c.max;
   c.el = document.createElement('div');
@@ -487,12 +527,14 @@ function wrap() {
   price *= m;
   c.cur++; c.miss += miss;
   const last = c.cur >= c.items.length;
-  const paid = Math.round(price * (miss === 0 ? 1 : miss === 1 ? .6 : .25));
-  const tip = miss === 0 ? Math.round(price * .3 * (c.pat / c.max)) : 0;
+  const rush = vs.on && tLeft <= RUSH ? 2 : 1;
+  const paid = Math.round(price * rush * (miss === 0 ? 1 : miss === 1 ? .6 : .25));
+  const tip = miss === 0 ? Math.round(price * rush * .3 * (c.pat / c.max)) : 0;
   const drinks = last ? Math.round(2 * S.lv.drinks * m) : 0;
   const cost = Math.round(m * 10) / 10;
   S.money += paid + tip + drinks - cost;
   S.rep = Math.max(0, Math.min(5, S.rep + (miss === 0 ? .1 : miss === 1 ? -.08 : -.2)));
+  if (vs.on) vsSend('score', { s: Math.round(S.money) });
   stats.served++; stats.sales += paid; stats.tips += tip; stats.drinks += drinks; stats.cost += cost; if (miss === 0) stats.perfect++;
   setTimeout(() => {
     floatText('+' + money(paid + tip + drinks), miss > 0);
@@ -613,6 +655,16 @@ function drawBackdrop() {
 }
 function hud() {
   $('money').textContent = money(S.money);
+  $('mute').textContent = S.mute ? 'Sound off' : 'Sound on';
+  $('app').classList.toggle('rush', vs.on && playing && tLeft <= RUSH);
+  if (vs.on) {
+    const t = Math.ceil(tLeft), o = vs.opp;
+    $('clock').textContent = (playing && tLeft <= RUSH ? 'Rush hour ×2 · ' : 'Vs · ') + Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
+    $('locname').textContent = o ? o.name + ' ' + money(o.score) + (o.left || (playing && Date.now() - o.seen > 7000) ? ' (away)' : '') : '';
+    $('stars').textContent = '';
+    $('daybar').style.width = (100 - tLeft / VS_LEN * 100) + '%';
+    return;
+  }
   const mins = Math.floor((1 - tLeft / DAY_LEN) * 240), h = 6 + Math.floor(mins / 60);
   $('clock').textContent = `Day ${S.day} · ${h}:${String(Math.floor(mins % 60 / 10) * 10).padStart(2, '0')}am`;
   $('locname').textContent = loc().name;
@@ -621,12 +673,17 @@ function hud() {
   $('daybar').style.width = (100 - tLeft / DAY_LEN * 100) + '%';
   $('mute').textContent = S.mute ? 'Sound off' : 'Sound on';
 }
-function spawnGap() { return Math.max(2.2, 6.5 / (1 + .2 * S.lv.sign) / loc().crowd * (1.3 - .1 * S.rep)) * (.75 + Math.random() * .5); }
+function spawnGap() { if (vs.on) return 5.2 - 3.4 * (1 - tLeft / VS_LEN); return Math.max(2.2, 6.5 / (1 + .2 * S.lv.sign) / loc().crowd * (1.3 - .1 * S.rep)) * (.75 + Math.random() * .5); }
 let last = 0;
 function tick(ts) {
   const dt = Math.min(.1, (ts - last) / 1000 || 0); last = ts;
   if (playing) {
-    tLeft = Math.max(0, tLeft - dt);
+    tLeft = vs.on ? Math.max(0, (vs.endAt - Date.now()) / 1000) : Math.max(0, tLeft - dt);
+    if (vs.on) {
+      const sec = Math.ceil(tLeft);
+      if (sec !== vs.sec) { vs.sec = sec; if (sec === RUSH) { toast('Rush hour! Double money!'); beep(660, .3, 'square', .06, 1320); } else if (sec <= 5 && sec > 0) beep(880, .08, 'square', .05); }
+      if (Date.now() - vs.beat > 1500) { vs.beat = Date.now(); vsSend('score', { s: Math.round(S.money) }); }
+    }
     if (tLeft > 0) { spawnIn -= dt; if (spawnIn <= 0) { spawn(); spawnIn = spawnGap(); } }
     for (const c of [...queue]) {
       c.pat -= dt * (c === queue[0] ? 1 : .4);
@@ -638,7 +695,7 @@ function tick(ts) {
       if (c.pat <= 0) { stats.lost++; S.rep = Math.max(0, S.rep - .25); leave(c, false); floatText('Steups!', true); sfx.bad(); }
     }
     hud();
-    if (tLeft <= 0 && !queue.length) endDay();
+    if (vs.on) { if (tLeft <= 0) endMatch(); } else if (tLeft <= 0 && !queue.length) endDay();
   }
   requestAnimationFrame(tick);
 }
@@ -823,6 +880,154 @@ $('app').addEventListener('click', e => {
   if (e.target.closest('[data-board]')) openBoard();
   else if (e.target.closest('[data-share]')) openShare();
 });
+
+/* ---------- vs mode: live head to head ---------- */
+const vsReady = () => online() || !!window.DV_LOCAL_VS;
+const loadScript = src => new Promise((res, rej) => { const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = () => rej(new Error('load')); document.head.appendChild(el); });
+let sbClient = null;
+// One shared channel per match code. Messages are relayed live between the two phones and never stored.
+async function vsConnect(code) {
+  if (window.DV_LOCAL_VS) { // same-browser transport, used only by automated tests
+    const bc = new BroadcastChannel('dv-vs-' + code);
+    return { send: (e, p) => bc.postMessage({ e, p }), on: fn => { bc.onmessage = m => fn(m.data.e, m.data.p); }, close: () => bc.close() };
+  }
+  if (!window.supabase) await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js');
+  sbClient = sbClient || window.supabase.createClient(BOARD.url, BOARD.key);
+  const ch = sbClient.channel('dv-vs-' + code, { config: { broadcast: { self: false } } });
+  let handler = null;
+  ch.on('broadcast', { event: 'm' }, msg => { const d = msg && msg.payload; if (handler && d) handler(d.e, d.p); });
+  await new Promise((res, rej) => {
+    const t = setTimeout(() => rej(new Error('timeout')), 12000);
+    ch.subscribe(st => { if (st === 'SUBSCRIBED') { clearTimeout(t); res(); } else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') { clearTimeout(t); rej(new Error(st)); } });
+  });
+  return { send: (e, p) => ch.send({ type: 'broadcast', event: 'm', payload: { e, p } }), on: fn => { handler = fn; }, close: () => sbClient.removeChannel(ch) };
+}
+const vsName = () => S.name || (career && career.name) || 'Vendor';
+const vsNum = v => Math.max(0, Math.min(1e7, Math.round(+v) || 0));
+function vsSend(e, p) { if (vs.net) try { vs.net.send(e, Object.assign({ id: vs.id }, p)); } catch (err) {} }
+function vsShow(part, note) {
+  ['home', 'lobby', 'result'].forEach(x => { $('vs-' + x).hidden = x !== part; });
+  if (note != null) $('vsnote').textContent = note;
+  $('vs').hidden = false; $('vs').scrollTop = 0;
+}
+function openVs(code) {
+  $('vsname').value = S.name; $('vstitle').textContent = 'Vs a friend';
+  const ok = vsReady();
+  $('vshost').disabled = $('vsjoin').disabled = !ok;
+  vsShow('home', ok ? 'Race a friend through the same 90-second rush: every topping, the same customers, and the last 15 seconds pay double. Most money wins.'
+                    : 'Vs mode needs the game’s online service, and that is not connected yet.');
+  if (code) $('vscode').value = code;
+}
+function lobbyNote() {
+  const o = vs.opp;
+  $('vstitle').textContent = vs.host ? 'Your match' : 'Joined';
+  $('vsnote').textContent = o ? (vs.host ? o.name + ' is here. Start when you are both ready.' : 'You are in. Waiting for ' + o.name + ' to start the rush.')
+    : vs.host ? 'Give your friend this code or send them the link. Waiting for them to join…' : 'Looking for your friend’s match… Check the code if this takes long.';
+  $('vsgo').hidden = !vs.host; $('vsgo').disabled = !o; $('vslink').hidden = !vs.host;
+}
+async function vsJoin(code, host) {
+  enableMotion();
+  vs.code = code; vs.host = host; vs.opp = null; vs.done = false;
+  $('vscodebig').textContent = code;
+  vsShow('lobby', 'Connecting…'); $('vsgo').hidden = true; $('vslink').hidden = true;
+  try { vs.net = await vsConnect(code); }
+  catch (e) { vs.net = null; return vsShow('home', 'Could not connect. Check your internet and try again.'); }
+  vs.net.on(vsMsg);
+  vsSend('hello', { name: vsName() });
+  clearInterval(vs.hello); vs.hello = setInterval(() => { if (vs.net && !vs.opp) vsSend('hello', { name: vsName() }); }, 2000);
+  lobbyNote();
+}
+function vsMsg(e, p) {
+  if (!p || !p.id || p.id === vs.id) return;
+  if (vs.opp && p.id !== vs.opp.id) return; // a match is two players; anyone else on the code is ignored
+  if (e === 'hello' || e === 'welcome') {
+    const name = String(p.name || 'Friend').slice(0, 16);
+    if (!vs.opp) vs.opp = { id: p.id, name, score: 0, seen: Date.now() }; else { vs.opp.name = name; vs.opp.left = false; }
+    if (e === 'hello') vsSend('welcome', { name: vsName() });
+    if (!$('vs-lobby').hidden) lobbyNote();
+    return;
+  }
+  const o = vs.opp; if (!o) return;
+  o.seen = Date.now();
+  if (e === 'start' && !vs.host && !vs.on) vsCountdown(Math.abs(Math.floor(+p.seed) || 1) % 2147483000);
+  else if (e === 'score') o.score = vsNum(p.s);
+  else if (e === 'done') { o.score = vsNum(p.s); o.done = true; if (vs.done) vsResult(); }
+  else if (e === 'again' && vs.done) vsLobby();
+  else if (e === 'bye') { if (!$('vs-lobby').hidden && !$('vs').hidden) { vs.opp = null; lobbyNote(); } else { o.left = true; o.done = true; if (vs.done) vsResult(); } }
+}
+function vsCountdown(seed) {
+  // Swap in a fresh stand: every topping, no upgrades, the Savannah crowd. The career save is parked.
+  if (!career) career = S;
+  S = Object.assign(fresh(), { tops: TOPS.map(t => t.id), loc: 3, name: career.name, mute: career.mute });
+  vs.on = true; vs.seed = seed || 1; vs.k = 0; vs.done = false; vs.sec = 0;
+  if (vs.opp) { vs.opp.score = 0; vs.opp.done = false; }
+  stats = { served: 0, perfect: 0, lost: 0, sales: 0, tips: 0, drinks: 0, cost: 0 };
+  queue.forEach(c => c.el.remove()); queue = [];
+  playing = false; tLeft = VS_LEN;
+  $('title').hidden = true; $('dayend').hidden = true; $('vs').hidden = true;
+  drawBackdrop(); renderTray(); clearBuild(); hint(); hud();
+  const el = $('vscount'); el.hidden = false;
+  let n = 3; el.textContent = n; beep(440, .12, 'square', .06);
+  const step = () => {
+    n--;
+    if (n > 0) { el.textContent = n; beep(440, .12, 'square', .06); return setTimeout(step, 1000); }
+    el.hidden = true; beep(880, .3, 'square', .06);
+    vs.endAt = Date.now() + VS_LEN * 1000; vs.beat = 0; spawnIn = .5; playing = true;
+  };
+  setTimeout(step, 1000);
+}
+function endMatch() {
+  playing = false; vs.done = true;
+  queue.forEach(c => c.el.remove()); queue = []; renderBubble(); hud();
+  vsSend('done', { s: Math.round(S.money) });
+  $('vstitle').textContent = 'Time!';
+  vsShow('result', 'Counting the money…'); $('vsscores').textContent = ''; $('vsagain').hidden = true;
+  if (vs.opp && vs.opp.done) vsResult(); else setTimeout(() => { if (vs.done && !$('vs-result').hidden) vsResult(); }, 3000);
+}
+function vsResult() {
+  const me = Math.round(S.money), o = vs.opp, them = o ? o.score : 0;
+  $('vstitle').textContent = me > them ? 'You win!' : me < them ? 'You get beat!' : 'Dead heat!';
+  $('vsnote').textContent = o && o.left ? o.name + ' left the match.' : me > them ? 'Top vendor on the Savannah this morning.' : me < them ? 'Go again and take it back.' : 'Same money to the dollar. Run it again.';
+  const list = $('vsscores'); list.textContent = '';
+  [[vsName() + ' (you)', me], [o ? o.name : 'Friend', them]].sort((a, b) => b[1] - a[1]).forEach((r, i) => {
+    const row = document.createElement('div'); row.className = 'rank';
+    const n = document.createElement('span'); n.textContent = i + 1 + '.';
+    const who = document.createElement('span'); who.className = 'who'; who.textContent = r[0];
+    const amt = document.createElement('span'); amt.className = 'amt'; amt.textContent = money(r[1]);
+    row.append(n, who, amt); list.appendChild(row);
+  });
+  $('vsagain').hidden = !o || o.left;
+  if (me >= them) sfx.buy(); else sfx.bad();
+}
+function vsLobby() { vs.done = false; if (vs.opp) { vs.opp.done = false; } vsShow('lobby'); lobbyNote(); }
+function vsLeave() {
+  vsSend('bye', {}); clearInterval(vs.hello);
+  if (vs.net) try { vs.net.close(); } catch (e) {}
+  vs.net = null; vs.opp = null; vs.on = false; vs.done = false; playing = false;
+  if (career) { S = career; career = null; }
+  queue.forEach(c => c.el.remove()); queue = [];
+  $('vs').hidden = true; $('vscount').hidden = true; $('title').hidden = false;
+  drawBackdrop(); renderTray(); hud();
+}
+$('openvs').addEventListener('click', () => openVs());
+$('vsname').addEventListener('input', () => { S.name = $('vsname').value.trim().slice(0, 16); save(); });
+$('vshost').addEventListener('click', () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let c = ''; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; vsJoin(c, true); });
+$('vsjoin').addEventListener('click', () => {
+  const c = $('vscode').value.trim().toUpperCase();
+  if (!/^[A-Z]{4}$/.test(c)) { $('vsnote').textContent = 'The code is four letters. Ask your friend for it.'; return $('vscode').focus(); }
+  vsJoin(c, false);
+});
+$('vsgo').addEventListener('click', () => { if (!vs.opp) return; const seed = 1 + Math.floor(Math.random() * 2e9); vsSend('start', { seed }); vsCountdown(seed); });
+$('vsagain').addEventListener('click', () => { vsSend('again', {}); vsLobby(); });
+$('vsleave').addEventListener('click', vsLeave);
+$('vslink').addEventListener('click', async () => {
+  const url = gameUrl() ? gameUrl() + '?vs=' + vs.code : '', text = 'Race me in Doubles Vendor! ' + (url ? '' : 'Match code: ' + vs.code);
+  try { if (navigator.share) return await navigator.share(url ? { text, url } : { text }); } catch (e) { return; }
+  try { await navigator.clipboard.writeText((text + ' ' + url).trim()); $('vslink').textContent = 'Link copied'; } catch (e) { $('vslink').textContent = 'Code: ' + vs.code; }
+  setTimeout(() => { $('vslink').textContent = 'Send the link'; }, 2000);
+});
+addEventListener('pagehide', () => { if (vs.net) vsSend('bye', {}); });
+{ const q = (new URLSearchParams(location.search).get('vs') || '').toUpperCase(); if (/^[A-Z]{4}$/.test(q)) openVs(q); }
 
 if (S.day > 1 || S.money > 0) { $('start').textContent = 'Continue – Day ' + S.day; $('reset').hidden = false; }
 drawBackdrop(); renderTray(); hud(); requestAnimationFrame(tick);
