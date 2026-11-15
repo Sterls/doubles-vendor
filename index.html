@@ -55,7 +55,7 @@ button:focus-visible { outline: 3px solid var(--cream); outline-offset: 2px; }
 .daybar > div { height: 100%; width: 0; background: var(--sun); }
 
 /* Scene */
-.scene { position: relative; flex: 1 1 36%; min-height: 0; background: var(--sky); overflow: hidden; }
+.scene { position: relative; flex: 1 1 40%; min-height: 0; background: var(--sky); overflow: hidden; }
 #backdrop { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .bubble { position: absolute; z-index: 3; top: 8px; left: var(--gl); right: var(--gr); background: var(--cream); border: 3px solid var(--ink); border-radius: 16px; padding: 8px 12px 10px; box-shadow: 4px 4px 0 var(--ink); transition: opacity .15s; }
 .bubble::after { content: ""; position: absolute; left: 44px; bottom: -14px; border: 7px solid transparent; border-top-color: var(--ink); }
@@ -66,6 +66,21 @@ button:focus-visible { outline: 3px solid var(--cream); outline-offset: 2px; }
 .chip { font-size: 12px; padding: 3px 9px; border-radius: 99px; border: 2px solid var(--ink); background: #fff; }
 .chip.ok { background: var(--leaf); color: #fff; }
 .chip.bad { background: var(--red); color: #fff; }
+.bpat { margin-top: 6px; height: 6px; border: 2px solid var(--ink); border-radius: 6px; background: #fff; overflow: hidden; }
+.bpat > div { height: 100%; width: 100%; background: var(--leaf); }
+.bubble.multi .bpat { margin-top: 4px; }
+.bubble.multi { padding: 5px 10px 6px; top: 5px; }
+.bubble.multi .say { font-size: 13px; line-height: 1.2; }
+.rows { margin-top: 3px; font-size: 12px; line-height: 1.25; }
+.row { display: flex; gap: 6px; }
+.row i { font-style: normal; flex: 0 0 2.2em; font-variant-numeric: tabular-nums; }
+.row span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.row.done { opacity: .45; }
+.row.cur span { white-space: normal; font-weight: 900; }
+.row.cur i { color: var(--red); }
+.row u { text-decoration: none; }
+.row u.ok { color: var(--leaf); }
+.row u.bad { color: var(--red); }
 .queue { position: absolute; inset: 0; }
 .cust { position: absolute; bottom: 12%; width: 23%; max-width: 110px; transition: left .45s cubic-bezier(.3,1.3,.5,1), transform .45s, opacity .45s; transform-origin: 50% 100%; }
 .cust svg { display: block; width: 100%; height: auto; }
@@ -81,7 +96,7 @@ button:focus-visible { outline: 3px solid var(--cream); outline-offset: 2px; }
 @keyframes rise { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-70px); opacity: 0; } }
 
 /* Bench */
-.bench { position: relative; flex: 1 1 34%; min-height: 0; background: var(--wood); background-image: repeating-linear-gradient(0deg, transparent 0 22px, rgba(0,0,0,.12) 22px 24px); display: flex; align-items: center; justify-content: center; padding-left: var(--gl); padding-right: var(--gr); }
+.bench { position: relative; flex: 1 1 30%; min-height: 0; background: var(--wood); background-image: repeating-linear-gradient(0deg, transparent 0 22px, rgba(0,0,0,.12) 22px 24px); display: flex; align-items: center; justify-content: center; padding-left: var(--gl); padding-right: var(--gr); }
 #food { height: 100%; max-height: 260px; width: auto; max-width: 78%; }
 #food.shrink { animation: shrink .22s ease-in forwards; }
 @keyframes shrink { to { transform: scale(.2) rotate(40deg); opacity: 0; } }
@@ -163,7 +178,7 @@ button:focus-visible { outline: 3px solid var(--cream); outline-offset: 2px; }
 
   <div class="scene" id="scene">
     <svg id="backdrop" viewBox="0 0 400 260" preserveAspectRatio="xMidYMax slice" aria-hidden="true"></svg>
-    <div class="bubble empty" id="bubble"><div class="say" id="say"></div><div class="chips" id="chips"></div></div>
+    <div class="bubble empty" id="bubble"><div class="say" id="say"></div><div class="chips" id="chips"></div><div class="bpat"><div id="bpat"></div></div></div>
     <div class="queue" id="queue"></div>
     <div class="counter"></div>
   </div>
@@ -338,11 +353,20 @@ function custSvg(c) {
 function patienceMax() { return (15 + 2 * S.tops.length) * (1 + .2 * S.lv.radio); }
 function spawn() {
   if (queue.length >= 4) return;
-  const pr = Math.random();
+  // From Curepe Junction on, a customer may order up to three doubles; under the mango tree it is always one.
+  const nr = Math.random(), n = S.loc === 0 ? 1 : S.loc === 1 ? (nr < .5 ? 1 : nr < .85 ? 2 : 3) : (nr < .35 ? 1 : nr < .75 ? 2 : 3);
+  const items = [];
+  for (let i = 0; i < n; i++) {
+    if (i && Math.random() < .45) { const o = items[Math.floor(Math.random() * i)]; items.push({ pepper: o.pepper, tops: new Set(o.tops), ask: o.ask }); continue; }
+    const pr = Math.random(), it = { pepper: pr < .2 ? 0 : pr < .55 ? 1 : pr < .8 ? 2 : 3, tops: new Set(S.tops.filter(() => Math.random() < .45)) };
+    // Each doubles is called in its own random sequence, fixed for as long as the customer waits.
+    it.ask = ['pepper', ...it.tops];
+    for (let k = it.ask.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [it.ask[k], it.ask[j]] = [it.ask[j], it.ask[k]]; }
+    items.push(it);
+  }
   const c = {
-    id: ++uid, pepper: pr < .2 ? 0 : pr < .55 ? 1 : pr < .8 ? 2 : 3,
-    tops: new Set(S.tops.filter(() => Math.random() < .45)),
-    max: patienceMax(), skin: SKIN[uid * 7 % SKIN.length], shirt: SHIRT[Math.floor(Math.random() * SHIRT.length)],
+    id: ++uid, items, cur: 0, miss: 0,
+    max: patienceMax() * (1 + .6 * (n - 1)), skin: SKIN[uid * 7 % SKIN.length], shirt: SHIRT[Math.floor(Math.random() * SHIRT.length)],
     shirt2: SHIRT[Math.floor(Math.random() * SHIRT.length)], hair: Math.floor(Math.random() * 5)
   };
   c.pat = c.max;
@@ -379,18 +403,41 @@ function renderBubble() {
   const c = queue[0], bub = $('bubble');
   bub.classList.toggle('empty', !c);
   if (!c) return;
-  // Each customer calls the order in their own random sequence, fixed for as long as they wait.
-  if (!c.ask) { c.ask = ['pepper', ...c.tops]; for (let i = c.ask.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [c.ask[i], c.ask[j]] = [c.ask[j], c.ask[i]]; } }
-  const words = c.ask.map(id => id === 'pepper' ? `<em>${PEPPER[c.pepper]}</em>` : TOPS.find(t => t.id === id).name.toLowerCase());
-  const list = words.length > 1 ? words.slice(0, -1).join(', ') + ' and ' + words[words.length - 1] : words[0];
-  $('say').innerHTML = 'One doubles with ' + list + (c.ask.length === 1 && S.tops.length ? ', nothing else' : '') + '!';
-  let chips = '';
-  c.ask.forEach(id => {
-    if (id === 'pepper') chips += `<span class="chip ${build.pepper === c.pepper ? 'ok' : ''}">${PEPPER[c.pepper]}</span>`;
-    else chips += `<span class="chip ${build.tops.has(id) ? 'ok' : ''}">${TOPS.find(t => t.id === id).name}</span>`;
+  const it = c.items[Math.min(c.cur, c.items.length - 1)], tname = id => TOPS.find(t => t.id === id).name;
+  const all = t => S.tops.length >= 2 && t.tops.size === S.tops.length;
+  bub.classList.toggle('multi', c.items.length > 1);
+  if (c.items.length === 1) {
+    const words = it.ask.map(id => id === 'pepper' ? `<em>${PEPPER[it.pepper]}</em>` : tname(id).toLowerCase());
+    const list = words.length > 1 ? words.slice(0, -1).join(', ') + ' and ' + words[words.length - 1] : words[0];
+    $('say').innerHTML = 'One doubles with ' + list + (it.ask.length === 1 && S.tops.length ? ', nothing else' : '') + '!';
+    let chips = '';
+    it.ask.forEach(id => {
+      if (id === 'pepper') chips += `<span class="chip ${build.pepper === it.pepper ? 'ok' : ''}">${PEPPER[it.pepper]}</span>`;
+      else chips += `<span class="chip ${build.tops.has(id) ? 'ok' : ''}">${tname(id)}</span>`;
+    });
+    build.tops.forEach(id => { if (!it.tops.has(id)) chips += `<span class="chip bad">no ${tname(id).toLowerCase()}!</span>`; });
+    $('chips').className = 'chips'; $('chips').innerHTML = chips;
+    return;
+  }
+  // Several doubles: the customer calls it the short way ("Two slight, one plenty with everything!"),
+  // and each doubles gets its own line underneath.
+  const tops = t => { const ids = t.ask.filter(id => id !== 'pepper').map(id => tname(id).toLowerCase()); return ids.length > 1 ? ids.slice(0, -1).join(', ') + ' and ' + ids[ids.length - 1] : ids[0] || ''; };
+  const groups = [];
+  c.items.forEach(t => { const key = t.pepper + [...t.tops].sort().join(); const g = groups.find(g => g.key === key); g ? g.n++ : groups.push({ key, n: 1, t }); });
+  const call = groups.map(g => ['one', 'two', 'three'][g.n - 1] + ' <em>' + ['no pepper', 'slight', 'medium', 'plenty'][g.t.pepper] + '</em>' + (all(g.t) ? ' with everything' : g.t.tops.size ? ' with ' + tops(g.t) : '')).join(', ');
+  $('say').innerHTML = call[0].toUpperCase() + call.slice(1) + '!';
+  let rows = '';
+  c.items.forEach((t, i) => {
+    const cur = i === c.cur, done = i < c.cur;
+    let body;
+    if (!cur) body = PEPPER[t.pepper] + (all(t) ? ' · everything' : t.ask.filter(id => id !== 'pepper').map(id => ' · ' + tname(id).toLowerCase()).join(''));
+    else {
+      body = t.ask.map(id => id === 'pepper' ? `<u class="${build.pepper === t.pepper ? 'ok' : ''}">${PEPPER[t.pepper]}</u>` : `<u class="${build.tops.has(id) ? 'ok' : ''}">${tname(id).toLowerCase()}</u>`).join(' · ');
+      build.tops.forEach(id => { if (!t.tops.has(id)) body += ` · <u class="bad">no ${tname(id).toLowerCase()}!</u>`; });
+    }
+    rows += `<div class="row ${cur ? 'cur' : done ? 'done' : ''}"><i>${done ? '✓' : cur ? '▶' : ''} ${i + 1}</i><span>${body}</span></div>`;
   });
-  build.tops.forEach(id => { if (!c.tops.has(id)) chips += `<span class="chip bad">no ${TOPS.find(t => t.id === id).name.toLowerCase()}!</span>`; });
-  $('chips').innerHTML = chips;
+  $('chips').className = 'rows'; $('chips').innerHTML = rows;
 }
 
 /* ---------- building ---------- */
@@ -455,15 +502,18 @@ function wrap() {
   parcel.classList.add('go'); sfx.wrap();
   if (navigator.vibrate) navigator.vibrate(60);
   // score
-  let miss = build.pepper === c.pepper ? 0 : 1;
-  TOPS.forEach(t => { if (build.tops.has(t.id) !== c.tops.has(t.id)) miss++; });
+  const it = c.items[c.cur];
+  let miss = build.pepper === it.pepper ? 0 : 1;
+  TOPS.forEach(t => { if (build.tops.has(t.id) !== it.tops.has(t.id)) miss++; });
   const m = loc().mult;
   let price = 4 + S.lv.recipe;
-  c.tops.forEach(id => price += TOPS.find(t => t.id === id).bonus);
+  it.tops.forEach(id => price += TOPS.find(t => t.id === id).bonus);
   price *= m;
+  c.cur++; c.miss += miss;
+  const last = c.cur >= c.items.length;
   const paid = Math.round(price * (miss === 0 ? 1 : miss === 1 ? .6 : .25));
   const tip = miss === 0 ? Math.round(price * .3 * (c.pat / c.max)) : 0;
-  const drinks = Math.round(2 * S.lv.drinks * m);
+  const drinks = last ? Math.round(2 * S.lv.drinks * m) : 0;
   const cost = Math.round(m * 10) / 10;
   S.money += paid + tip + drinks - cost;
   S.rep = Math.max(0, Math.min(5, S.rep + (miss === 0 ? .1 : miss === 1 ? -.08 : -.2)));
@@ -471,7 +521,8 @@ function wrap() {
   setTimeout(() => {
     floatText('+' + money(paid + tip + drinks), miss > 0);
     if (miss === 0) sfx.coin(); else { sfx.bad(); toast(miss === 1 ? 'Steups. Dais not what I order' : 'Bwdmc! Dais not my order!'); }
-    leave(c, miss === 0); hud();
+    if (last && queue.includes(c)) leave(c, c.miss === 0);
+    hud();
   }, 420);
   clearBuild();
 }
@@ -606,6 +657,7 @@ function tick(ts) {
       const f = Math.max(0, c.pat / c.max);
       c.bar.style.width = f * 100 + '%';
       c.bar.style.background = f > .5 ? '#2c9a48' : f > .25 ? '#f0b22e' : '#d7261e';
+      if (c === queue[0]) { $('bpat').style.width = c.bar.style.width; $('bpat').style.background = c.bar.style.background; }
       c.mouth.setAttribute('d', MOUTH[f > .5 ? 2 : f > .25 ? 1 : 0]);
       if (c.pat <= 0) { stats.lost++; S.rep = Math.max(0, S.rep - .25); leave(c, false); floatText('Steups!', true); sfx.bad(); }
     }
